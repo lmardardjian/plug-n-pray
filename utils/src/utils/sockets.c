@@ -44,7 +44,7 @@ int crear_conexion(char* ip, char* puerto) {
     if (socket_cliente == -1) {
         perror("Error al crear socket. Cerrando socket y liberando recursos");
         freeaddrinfo(server_info);
-        printf("Memoria liberada correctamente\n");
+        printf("Memoria liberada correctamente despues de un error\n");
         return -1;
     }
 
@@ -60,6 +60,7 @@ int crear_conexion(char* ip, char* puerto) {
 
     // Libera la memoria reservada por getaddrinfo()
     freeaddrinfo(server_info);
+    printf("Caso feliz: Memoria liberada correctamente\n");
     return socket_cliente;
 }
 
@@ -99,7 +100,7 @@ int iniciar_servidor(char* puerto) {
     if (socket_servidor == -1) {
         perror("Error al crear socket. Cerrando socket y liberando recursos");
         freeaddrinfo(servinfo);
-        printf("Memoria liberada correctamente\n");
+        printf("Memoria liberada correctamente despues de un error\n");
         return -1;
     }
 
@@ -113,7 +114,7 @@ int iniciar_servidor(char* puerto) {
         perror("Error en bind. Cerrando socket y liberando recursos");
         close(socket_servidor);
         freeaddrinfo(servinfo);
-        printf("Memoria liberada correctamente\n");
+        printf("Memoria liberada correctamente despues de un error\n");
         return -1;
     }
     
@@ -122,13 +123,13 @@ int iniciar_servidor(char* puerto) {
         perror("Error en listen. Cerrando socket y liberando recursos");
         close(socket_servidor);
         freeaddrinfo(servinfo);
-        printf("Memoria liberada correctamente\n");
+        printf("Memoria liberada correctamente despues de un error\n");
         return -1;
     }
 
     // Libera la memoria reservada por getaddrinfo()
     freeaddrinfo(servinfo);
-    printf("Memoria liberada correctamente\n");
+    printf("Caso feliz: Memoria liberada correctamente\n");
     return socket_servidor;
 }
 
