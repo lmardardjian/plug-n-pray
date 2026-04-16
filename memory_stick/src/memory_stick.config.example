@@ -1,0 +1,12 @@
+# =========================
+# CONFIG MEMORY STICK
+# =========================
+
+# Puerto donde escucha conexiones
+PUERTO_ESCUCHA=8003
+
+# Dirección del Kernel Memory
+IP_KERNEL_MEMORY=127.0.0.1
+PUERTO_KERNEL_MEMORY=8001
+
+LOG_LEVEL=INFO

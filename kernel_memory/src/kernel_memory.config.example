@@ -1,0 +1,8 @@
+# =========================
+# CONFIG KERNEL MEMORY
+# =========================
+
+# Puerto donde escucha conexiones
+PUERTO_ESCUCHA=8001
+
+LOG_LEVEL=INFO

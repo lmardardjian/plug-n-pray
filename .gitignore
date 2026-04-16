@@ -1,3 +1,7 @@
+# Configuraciones de los modulos. Se commitea el .config.example y cada uno usa su .config en su local
+*.config
+!*.config.example
+
 # Eclipse files
 .metadata/
 

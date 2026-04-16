@@ -1,0 +1,13 @@
+# =========================
+# CONFIG IO
+# =========================
+
+# Puerto donde escucha. No se si va a escuchar o no todavia
+# Segun la arquitectura del tp no recibe ninguna flecha de otro modulo
+PUERTO_ESCUCHA=8002
+
+# Dirección del Kernel Scheduler
+IP_KERNEL_SCHEDULER=127.0.0.1
+PUERTO_KERNEL_SCHEDULER=8000
+
+LOG_LEVEL=INFO
