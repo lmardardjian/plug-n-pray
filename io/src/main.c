@@ -2,27 +2,9 @@
 #include <stdlib.h>
 #include <commons/config.h>
 #include <commons/log.h>
-#include "utils/sockets.h"
+#include "utils/conexion.h"
 #include <string.h>
 #include <sys/socket.h>
-
-int conectar_a_modulo(t_log* logger, char* ip, char* puerto, char* nombre_modulo) {
-    log_info(logger, "Conectando a %s (%s:%s)", nombre_modulo, ip, puerto);
-
-    int conexion = crear_conexion(ip, puerto);
-    if (conexion == -1) {
-        log_error(logger, "No se pudo conectar a %s", nombre_modulo);
-        return -1;
-    }
-
-    log_info(logger, "Conectado correctamente a %s", nombre_modulo);
-    return conexion;
-}
-
-void enviar_mensaje(int conexion, char* mensaje, t_log* logger) {
-    send(conexion, mensaje, strlen(mensaje) + 1, 0);
-    log_info(logger, "Mensaje enviado");
-}
 
 int main(int argc, char* argv[]) {
     // si no hay argumento
@@ -56,7 +38,7 @@ int main(int argc, char* argv[]) {
     enviar_mensaje(conexion, "Hola Kernel desde IO", logger);
 
     // libero recursos
-    liberar_conexion(conexion);
+    cerrar_conexion(conexion,  logger);
 
     config_destroy(config);
     log_destroy(logger);

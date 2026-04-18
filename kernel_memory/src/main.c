@@ -3,36 +3,8 @@
 #include <string.h>
 #include <commons/config.h>
 #include <commons/log.h>
-#include "utils/sockets.h"
+#include "utils/conexion.h"
 #include <sys/socket.h>
-
-// Inicia el servidor
-int iniciar_servidor_modulo(t_log* logger, char* puerto, char* nombre_modulo) {
-    log_info(logger, "Iniciando %s en puerto %s", nombre_modulo, puerto);
-
-    int servidor = iniciar_servidor(puerto);
-    if (servidor == -1) {
-        log_error(logger, "Error al iniciar %s", nombre_modulo);
-        return -1;
-    }
-
-    log_info(logger, "%s listo para recibir conexiones", nombre_modulo);
-    return servidor;
-}
-
-// Espera un cliente
-int esperar_cliente_modulo(t_log* logger, int servidor, char* nombre_modulo) {
-    log_info(logger, "Esperando cliente en %s...", nombre_modulo);
-
-    int cliente = esperar_cliente(servidor);
-    if (cliente == -1) {
-        log_error(logger, "Error al aceptar cliente en %s", nombre_modulo);
-        return -1;
-    }
-
-    log_info(logger, "Cliente conectado a %s", nombre_modulo);
-    return cliente;
-}
 
 int main(int argc, char* argv[]) {
 
@@ -60,7 +32,7 @@ int main(int argc, char* argv[]) {
 
     int cliente = esperar_cliente_modulo(logger, servidor, "Kernel Memory");
     if (cliente == -1) {
-        liberar_conexion(servidor);
+        cerrar_conexion(servidor, logger);
         config_destroy(config);
         log_destroy(logger);
         return EXIT_FAILURE;
@@ -68,16 +40,10 @@ int main(int argc, char* argv[]) {
 
     char buffer[100];
 
-    int bytes = recv(cliente, buffer, sizeof(buffer), 0);
-    if (bytes > 0) {
-        log_info(logger, "Mensaje recibido");
-        printf("Mensaje: %s\n", buffer);
-    } else {
-        log_error(logger, "Error al recibir mensaje");
-    }
+    recibir_mensaje(cliente, buffer, sizeof(buffer), logger);
 
-    liberar_conexion(cliente);
-    liberar_conexion(servidor);
+    cerrar_conexion(cliente, logger);
+    cerrar_conexion(servidor, logger);
 
     config_destroy(config);
     log_destroy(logger);
