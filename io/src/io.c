@@ -1,0 +1,79 @@
+#include "io.h"
+
+#include <string.h>
+#include <strings.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+
+#include "utils/conexion.h"
+#include "utils/mensajes.h"
+#include "utils/constantes.h"
+
+int get_tipo_io(char* tipo) {
+    if(strcasecmp(tipo, "SLEEP") == 0) {
+
+        return TIPO_IO_SLEEP;
+    }
+    else if(strcmp(tipo, "STDIN") == 0) {
+
+        return TIPO_IO_STDIN;
+    }
+    else if(strcmp(tipo, "STDOUT") == 0) {
+
+        return TIPO_IO_STDOUT;
+    }
+    return -1;
+}
+
+char* tipo_io_to_string(int tipo)
+{
+    switch(tipo)
+    {
+        case TIPO_IO_SLEEP:
+            return "SLEEP";
+
+        case TIPO_IO_STDIN:
+            return "STDIN";
+
+        case TIPO_IO_STDOUT:
+            return "STDOUT";
+
+        default:
+            return "DESCONOCIDO";
+    }
+}
+
+void ejecutar_sleep(int pid, char* mensaje, t_log* logger)
+{
+    int tiempo = atoi(mensaje);
+    //LOG OBLIGATORIO
+    log_info(logger, "## PID: %d - Haciendo sleep por %d milisegundos.", pid, tiempo);
+    usleep(tiempo * 1000);
+}
+
+void ejecutar_stdout(int pid, char* mensaje, t_log* logger)
+{
+    printf("%s\n", mensaje);
+    log_info(logger, "## PID: %d - %s", pid, mensaje);
+}
+
+void ejecutar_stdin(int pid, int conexion, char* mensaje, t_log* logger)
+{
+    int cantidad = atoi(mensaje);
+    char input[BUFFER_SIZE];
+    memset(input, 0, BUFFER_SIZE);
+    log_info(logger, "## PID: %d - Ingrese %d caracteres:", pid, cantidad);
+
+    fgets(input, BUFFER_SIZE, stdin);
+    // Si sobrepasa el limite indicado (mensaje), se corta en ese caracter. Si le falta para llegar al limite, se le agregan \0s 
+    // eliminar \n
+    input[strcspn(input, "\n")] = '\0';
+    // buffer final exacto
+    char resultado[cantidad + 1];
+    memset(resultado, '\0', cantidad + 1);
+    strncpy(resultado, input, cantidad);
+    
+    enviar_mensaje(conexion, resultado, logger);
+    log_info(logger, "Input enviado al Kernel para PID %d", pid);
+}
