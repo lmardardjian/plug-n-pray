@@ -53,6 +53,42 @@ void enviar_mensaje(int conexion, char* mensaje, t_log* logger) {
     log_info(logger, "FN_ENVIAR_MSG: Mensaje enviado");
 }
 
+void enviar_uint32(int conexion, uint32_t valor)
+{
+    send(conexion, &valor, sizeof(uint32_t), 0);
+}
+
+int recibir_uint32(int conexion, uint32_t* valor)
+{
+    return recv(conexion, valor, sizeof(uint32_t), MSG_WAITALL);
+}
+
+void enviar_string(int conexion, char* string)
+{
+    uint32_t length = strlen(string) + 1;
+    enviar_uint32(conexion, length);
+    send(conexion, string, length, 0);
+}
+
+int recibir_string(int conexion, char* buffer, int max_size)
+{
+    uint32_t length;
+    recibir_uint32(conexion, &length);
+    
+    if(length > max_size) return -1;
+    return recv(conexion, buffer, length, MSG_WAITALL);
+}
+
+void enviar_contexto_serializado(int conexion, t_contexto* contexto)
+{
+    send(conexion, contexto, sizeof(t_contexto), 0);
+}
+
+void recibir_contexto_serializado(int conexion, t_contexto* contexto)
+{
+    recv(conexion, contexto, sizeof(t_contexto), MSG_WAITALL);
+}
+
 int recibir_mensaje(int conexion, char* buffer, int size, t_log* logger) {
     int bytes = recv(conexion, buffer, size, 0);
     

@@ -6,8 +6,19 @@ typedef enum {
 
     //mensajes io
     IO_EJECUTAR,
-    IO_FINALIZADA,
-    IO_ERROR,
+
+    //mensajes kernel memory
+    KM_CREAR_PROCESO,
+    KM_PEDIR_INSTRUCCION,
+    KM_PEDIR_CONTEXTO,
+    KM_ACTUALIZAR_CONTEXTO,
+    KM_MEM_READ,
+    KM_MEM_WRITE,
+    KM_ESPACIO_LIBRE,
+
+    //respuestas
+    RESPUESTA_OK,
+    RESPUESTA_ERROR
 } op_code;
 
 typedef enum {
@@ -25,5 +36,30 @@ typedef enum {
     TIPO_IO_STDOUT
 } tipo_io;
 
+/* PARA MAS ADELANTE EN EL TP
+typedef struct {
+    uint32_t id_segmento;
+    uint32_t base;
+    uint32_t limite;
+} t_segmento;
+*/
+typedef struct {
+    uint32_t pc;
+
+    uint8_t ax;
+    uint8_t bx;
+    uint8_t cx;
+    uint8_t dx;
+
+    uint32_t eax;
+    uint32_t ebx;
+    uint32_t ecx;
+    uint32_t edx;
+
+    uint32_t si;
+    uint32_t di;
+
+    // t_list* tabla_segmentos; PARA MAS ADELANTE EN EL TP
+} t_contexto;
 
 #endif

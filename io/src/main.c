@@ -126,18 +126,18 @@ int main(int argc, char* argv[]) {
                     break;
                 default:
                     log_error(logger, "Tipo IO desconocido");
-                    enviar_opcode(conexion, IO_ERROR);
+                    enviar_opcode(conexion, RESPUESTA_ERROR);
                     continue;
             }
             // LOG OBLIGATORIO
             log_info(logger, "## PID: %d - Fin de IO", pid);
-            enviar_opcode(conexion, IO_FINALIZADA);
+            enviar_opcode(conexion, RESPUESTA_OK);
             log_info(logger, "## PID: %d - IO_FINALIZADA enviada", pid);
         }
         else
         {
             log_error(logger, "Opcode desconocido");
-            enviar_opcode(conexion, IO_ERROR);
+            enviar_opcode(conexion, RESPUESTA_ERROR);
         }
     }
     log_info(logger, "IO Salio del loop principal de espera");
