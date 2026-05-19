@@ -52,6 +52,39 @@ El módulo debe iniciarse indicando:
 | `KM_ESPACIO_LIBRE`        | Devuelve espacio libre mock |
 
 -------------------------------------------------------------------------
+# EJEMPLO: Flujo Kernel Scheduler / CPU / Kernel Memory
+1. Kernel Scheduler se conecta a Kernel Memory y hace handshake.
+2. Kernel Scheduler crea un proceso:
+   - manda `KM_CREAR_PROCESO`
+   - manda `pid`
+   - manda `path`
+   - KM crea:
+     - contexto
+     - lista de instrucciones
+     - lo guarda en dictionary
+   - KM responde `RESPUESTA_OK`
+3. Kernel Scheduler manda el proceso a CPU.
+4. CPU se conecta a Kernel Memory y hace handshake.
+5. CPU pide el contexto:
+   - manda `KM_PEDIR_CONTEXTO`
+   - manda `pid`
+   - KM responde con `t_contexto`
+6. CPU pide una instrucción:
+   - manda `KM_PEDIR_INSTRUCCION`
+   - manda `pid`
+   - manda `pc`
+   - KM responde con la instrucción.
+7. CPU ejecuta la instrucción y modifica registros localmente.
+8. CPU actualiza el contexto:
+   - manda `KM_ACTUALIZAR_CONTEXTO`
+   - manda `pid`
+   - manda `t_contexto`
+   - KM pisa el contexto guardado.
+   - KM responde `RESPUESTA_OK`
+9. CPU vuelve a pedir instrucciones y repite el ciclo.
+si hubo algun error, en lugar de devolver `RESPUESTA_OK` o directamnte el contexto/instruccion va a devolver `RESPUESTA_ERROR`
+
+-------------------------------------------------------------------------
 # KM_CREAR_PROCESO
 Recibe:
 ```c
