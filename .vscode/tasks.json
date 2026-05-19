@@ -1,0 +1,15 @@
+{ 
+  "version": "2.0.0", 
+  "tasks": [ 
+    { 
+      "label": "build", // (1)
+      "command": "make clean all", // (2)
+      "type": "shell", // (3)
+      "group": { // (4)
+        "kind": "build", 
+        "isDefault": true
+      }, 
+      "problemMatcher": ["$gcc"] // (5)
+    } 
+  ] 
+} 
