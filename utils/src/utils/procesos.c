@@ -1,5 +1,6 @@
-#include "./kernel_scheduler/src/pcb.h"
+#include "/home/utnso/Documents/tp-2026-1c-Bobby-Tables/kernel_scheduler/src/pcb.h"
 #include "./procesos.h"
+#include <stdint.h>
 
 t_pcb *crear_proceso(uint32_t pid_asignado){
     t_pcb *proceso = malloc(sizeof(t_pcb));
