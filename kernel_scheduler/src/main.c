@@ -47,7 +47,16 @@ int main(int argc, char* argv[]) {
     log_info(logger, "Handshake realizado correctamente");
 
     while(1){
-  
+        //chequeamos que no llegue la notificación por parte del Kernel Memory de que se detectó 
+        //corrupción en la memoria y por lo tanto un BSoD (podría ser un bool global?).
+        if(!blue_screen_of_death) {
+            
+        }
+        else {
+            list_destroy_and_destroy_elements(p_activos_global, kill_all_processes);
+            return BSOD;
+        }
+
     }
 
 

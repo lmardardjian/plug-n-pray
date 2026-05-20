@@ -25,16 +25,15 @@ void inicializar_planificador() {
 
 void agregar_a_running(t_list* lista_running, uint32_t pid) {
     pthread_mutex_lock(&mutex_running);
-
+    //se agregan con algún criterio en concreto?
     pthread_mutex_unlock(&mutex_running);
 }
 
 void quitar_de_running(t_list* lista_running, uint32_t pid) {
     pthread_mutex_lock(&mutex_running);
-    
+    //se quitan con algún criterio en concreto?
     pthread_mutex_unlock(&mutex_running);
 }
-
 
 void agregar_a_ready(t_queue* cola_ready, uint32_t pid) {
     pthread_mutex_lock(&mutex_ready);   //Wait, cierra el candado
