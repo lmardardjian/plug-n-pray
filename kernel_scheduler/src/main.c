@@ -38,7 +38,18 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    handshake_servidor(cliente, logger);
+    int32_t resultado_handshake = handshake_servidor(cliente, logger);
+
+    if(resultado_handshake == -1) {
+        log_error(logger, "Handshake fallido");
+        return EXIT_FAILURE;
+    }
+    log_info(logger, "Handshake realizado correctamente");
+
+    while(1){
+  
+    }
+
 
     char buffer[100];
 
