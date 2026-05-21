@@ -26,24 +26,6 @@ int get_tipo_io(char* tipo) {
     return -1;
 }
 
-char* tipo_io_to_string(int tipo)
-{
-    switch(tipo)
-    {
-        case TIPO_IO_SLEEP:
-            return "SLEEP";
-
-        case TIPO_IO_STDIN:
-            return "STDIN";
-
-        case TIPO_IO_STDOUT:
-            return "STDOUT";
-
-        default:
-            return "DESCONOCIDO";
-    }
-}
-
 void ejecutar_sleep(int pid, char* mensaje, t_log* logger)
 {
     int tiempo = atoi(mensaje);

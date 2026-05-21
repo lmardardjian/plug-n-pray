@@ -211,3 +211,21 @@ int recibir_opcode(int socket, op_code* codigo)
 {
     return recv(socket, codigo, sizeof(op_code), MSG_WAITALL);
 }
+
+char* tipo_io_to_string(int tipo)
+{
+    switch(tipo)
+    {
+        case TIPO_IO_SLEEP:
+            return "SLEEP";
+
+        case TIPO_IO_STDIN:
+            return "STDIN";
+
+        case TIPO_IO_STDOUT:
+            return "STDOUT";
+
+        default:
+            return "DESCONOCIDO";
+    }
+}
