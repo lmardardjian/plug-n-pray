@@ -32,7 +32,7 @@ void* atender_cliente_especifico(void* arg) {
         //cambiar recibir_mensaje por nuestra función de deserializacion
         int bytes_recibidos = recibir_mensaje(cliente, buffer, sizeof(buffer), logger);
         if (bytes_recibidos <= 0) {
-            log_warning(logger, "EL cliente (%d) se desconecto", cliente);
+            log_error(logger, "EL cliente (%d) se desconecto", cliente);
             break;
         }
         // Dependiendo del mensaje (ej: llegó un proceso, 
