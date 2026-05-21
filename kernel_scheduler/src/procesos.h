@@ -2,12 +2,13 @@
 #define PROCESOS_H
 #include "pcb.h"
 #include <commons/collections/list.h>
+#include <commons/log.h>
 #include <stdbool.h>
 #include <stdint.h>
 
 extern t_list* p_activos_global;
 
-t_pcb *encontrar_proceso(t_list *procesos_activos, uint32_t pid);
+t_pcb *crear_pcb (uint32_t pid, uint32_t prioridad);
 void destruir_pcb(void* pcb);
 void destruir_todos(t_list* procesos);
 t_pcb* encontrar_proceso(t_list* procesos, uint32_t pid);
