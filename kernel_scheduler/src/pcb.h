@@ -8,17 +8,17 @@ typedef enum {
     ESTADO_READY,
     ESTADO_EXEC,
     ESTADO_BLOCK,
-    ESTADO_EXIT
-    // ESTADO_SUSP_READY
-    // ESTADP_SUSP_BLOCK
+    ESTADO_EXIT,
+    ESTADO_SUSP_READY,
+    ESTADO_SUSP_BLOCK
 } t_estado;
 
 
 typedef struct {
     uint32_t pid;       // Identificador único
-    uint32_t pc;        // Program Counter
     t_estado estado;    // Estado actual 
-    //Luego añadimos CPU regs y prioridades
+    uint32_t prioridad;
+    uint32_t prioridad_original;
 } t_pcb;
 
 #endif

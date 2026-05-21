@@ -4,6 +4,9 @@
 t_queue *cola_ready;
 t_queue *cola_block;
 t_list *lista_running;
+
+pthread_mutex_t mutex_new;
+sem_t sem_procesos_en_new;
 pthread_mutex_t mutex_ready;
 sem_t sem_procesos_en_ready;
 pthread_mutex_t mutex_block;
@@ -41,9 +44,9 @@ void agregar_a_ready(t_queue* cola_ready, uint32_t pid) {
     pthread_mutex_unlock(&mutex_ready); //Signal, abre el candado
 }
 
-void quitar_de_ready(t_queue* cola_ready, uint32_t pid) { 
+void quitar_de_ready(t_queue* cola_ready) { 
     pthread_mutex_lock(&mutex_ready);
-    queue_pop(cola_ready, pid);
+    queue_pop(cola_ready);
     pthread_mutex_unlock(&mutex_ready);
 }
 
@@ -55,7 +58,7 @@ void agregar_a_block(t_queue* cola_block, uint32_t pid) {
 
 void quitar_de_block(t_queue* cola_block, uint32_t pid) { 
     pthread_mutex_lock(&mutex_block);
-    queue_pop(cola_block, pid);
+    queue_pop(cola_block);
     pthread_mutex_unlock(&mutex_block);
 }
 
