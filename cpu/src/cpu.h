@@ -1,0 +1,19 @@
+#ifndef CPU_H
+#define CPU_H
+
+#include <commons/log.h>
+#include <utils/mensajes.h>  // donde está t_contexto y op_code
+#include <stdint.h>
+
+// PID actual que está ejecutando esta CPU
+// (global para poder usarlo en logs desde cualquier lado)
+extern int pid_actual;
+
+// Funciones principales
+void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger);
+
+// Helpers de registros
+uint32_t leer_registro(t_contexto* ctx, char* nombre);
+void     escribir_registro(t_contexto* ctx, char* nombre, uint32_t valor);
+
+#endif
