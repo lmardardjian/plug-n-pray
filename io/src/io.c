@@ -15,11 +15,11 @@ int get_tipo_io(char* tipo) {
 
         return TIPO_IO_SLEEP;
     }
-    else if(strcmp(tipo, "STDIN") == 0) {
+    else if(strcasecmp(tipo, "STDIN") == 0) {
 
         return TIPO_IO_STDIN;
     }
-    else if(strcmp(tipo, "STDOUT") == 0) {
+    else if(strcasecmp(tipo, "STDOUT") == 0) {
 
         return TIPO_IO_STDOUT;
     }
@@ -37,12 +37,17 @@ void ejecutar_sleep(int pid, char* mensaje, t_log* logger)
 void ejecutar_stdout(int pid, char* mensaje, t_log* logger)
 {
     printf("%s\n", mensaje);
+    fflush(stdout);
     log_info(logger, "## PID: %d - %s", pid, mensaje);
 }
 
 void ejecutar_stdin(int pid, int conexion, char* mensaje, t_log* logger)
 {
     int cantidad = atoi(mensaje);
+    if(cantidad >= BUFFER_SIZE)
+    {
+        cantidad = BUFFER_SIZE - 1;
+    }
     char input[BUFFER_SIZE];
     memset(input, 0, BUFFER_SIZE);
     log_info(logger, "## PID: %d - Ingrese %d caracteres:", pid, cantidad);

@@ -228,7 +228,7 @@ void* atender_cliente(void* arg)
                 responder_espacio_libre(cliente, logger);
                 break;
             default:
-                log_warning(logger, "Operacion desconocida");
+                log_error(logger, "Operacion desconocida");
                 break;
         }
     }

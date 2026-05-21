@@ -1,0 +1,24 @@
+#ifndef IO_MANAGER_H
+#define IO_MANAGER_H
+
+#include <stdint.h>
+#include <commons/log.h>
+#include "pcb.h"
+#include "utils/conexion.h"
+#include "utils/mensajes.h"
+#include "utils/constantes.h"
+#include "utils/hilos.h"
+
+typedef struct {
+    uint32_t  pid;
+    tipo_io tipo;
+    uint32_t  sleep_ms;
+    uint32_t  dir_logica;
+    uint32_t  size;
+    void*     datos;
+} t_io_request;
+
+void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, int socket_km, t_log* logger);
+void manejar_syscall_io(t_pcb* proceso, t_io_request* req, t_log* logger);
+
+#endif

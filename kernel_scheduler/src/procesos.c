@@ -37,21 +37,47 @@ void destruir_todos(t_list* procesos) {
     list_destroy_and_destroy_elements(procesos, destruir_pcb);
 }
 
-/*t_pcb* encontrar_proceso(t_list* procesos, uint32_t pid) {
-    t_busqueda busqueda = { .pid = pid };
-    return list_find_with_context(procesos, mismo_pid, &busqueda);
+t_pcb* encontrar_proceso(t_list* procesos, uint32_t pid) {
+    for (int i = 0; i < list_size(procesos); i++) {
+        t_pcb* proceso = list_get(procesos, i);
+        if (proceso->pid == pid) return proceso;
+    }
+    return NULL;
 }
-*/
+
+static char* estado_to_string(t_estado estado) {
+    switch (estado) {
+        case ESTADO_NEW:        
+            return "NEW";
+            
+        case ESTADO_READY:      
+            return "READY";
+
+        case ESTADO_EXEC:       
+            return "EXEC";
+
+        case ESTADO_BLOCK:      
+            return "BLOCK";
+
+        case ESTADO_EXIT:       
+            return "EXIT";
+
+        case ESTADO_SUSP_READY: 
+            return "SUSP_READY";
+
+        case ESTADO_SUSP_BLOCK: 
+            return "SUSP_BLOCK";
+
+        default:                
+            return "DESCONOCIDO";
+    }
+}
 
 void cambiar_estado(t_pcb *proceso, t_estado nuevo_estado, t_log* logger) {
-    /*
-    char* nombres[] = {
-        "NEW", "READY", "EXEC", "BLOCK", "EXIT", "SUSP_READY", "SUSP_BLOCK"
-    };
     log_info(logger, "## (%d) Pasa del estado %s al estado %s",
              proceso->pid,
-             nombres[proceso->estado],
-             nombres[nuevo_estado]);
-    */
+             estado_to_string(proceso->estado),
+             estado_to_string(nuevo_estado));
+             
     proceso -> estado = nuevo_estado;
 }
