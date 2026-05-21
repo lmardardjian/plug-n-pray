@@ -3,20 +3,20 @@
 
 t_queue* cola_ready;
 t_queue* cola_block;
-t_list* lista_running;
+t_list* lista_exec;
 
 pthread_mutex_t mutex_ready;
 pthread_mutex_t mutex_block;
-pthread_mutex_t mutex_running;
+pthread_mutex_t mutex_exec;
 
 sem_t sem_procesos_en_ready;
 sem_t sem_procesos_en_block;
-sem_t sem_procesos_en_running;
+sem_t sem_procesos_en_exec;
 
 void inicializar_planificador() {
     cola_ready = queue_create();
     cola_block = queue_create();
-    lista_running = list_create();
+    lista_exec = list_create();
 
     pthread_mutex_init(&mutex_ready, NULL);
     sem_init(&sem_procesos_en_ready, 0, 0);
@@ -24,8 +24,8 @@ void inicializar_planificador() {
     pthread_mutex_init(&mutex_block, NULL);
     sem_init(&sem_procesos_en_block, 0, 0);
 
-    pthread_mutex_init(&mutex_running, NULL);
-    sem_init(&sem_procesos_en_running, 0, 0);
+    pthread_mutex_init(&mutex_exec, NULL);
+    sem_init(&sem_procesos_en_exec, 0, 0);
 }
 
 // -- READY -----------------------------------------
@@ -76,22 +76,22 @@ t_pcb* quitar_de_block(uint32_t pid) { //Revisar
 
 // -- EXECUTE -----------------------------------------
 
-void agregar_a_running(t_pcb* proceso) {
-    pthread_mutex_lock(&mutex_running);
-    list_add(lista_running, proceso);
-    pthread_mutex_unlock(&mutex_running);
+void agregar_a_exec(t_pcb* proceso) {
+    pthread_mutex_lock(&mutex_exec);
+    list_add(lista_exec, proceso);
+    pthread_mutex_unlock(&mutex_exec);
 }
 
-void quitar_de_running(uint32_t pid) {
-    pthread_mutex_lock(&mutex_running);
-     for (int i = 0; i < list_size(lista_running); i++) {
-        t_pcb* proceso = list_get(lista_running, i);
+void quitar_de_exec(uint32_t pid) {
+    pthread_mutex_lock(&mutex_exec);
+     for (int i = 0; i < list_size(lista_exec); i++) {
+        t_pcb* proceso = list_get(lista_exec, i);
         if (proceso->pid == pid) {
-            list_remove(lista_running, i);
+            list_remove(lista_exec, i);
             break;
         }
     }
-    pthread_mutex_unlock(&mutex_running);
+    pthread_mutex_unlock(&mutex_exec);
 }
 
 /*Hay que revisar esto. Es necesario hacer una función que llame a obtener_siguiente_proceso

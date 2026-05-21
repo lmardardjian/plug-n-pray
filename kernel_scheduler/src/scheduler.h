@@ -10,17 +10,17 @@
 // Colas y listas
 extern t_queue *cola_ready;
 extern t_queue *cola_block;
-extern t_list *lista_running;
+extern t_list *lista_exec;
 
 //Mutex 
 extern pthread_mutex_t mutex_ready;
 extern pthread_mutex_t mutex_block;
-extern pthread_mutex_t mutex_running;
+extern pthread_mutex_t mutex_exec;
 
 //Semaforos de bloqueo cuando no hay procesos
 extern sem_t sem_procesos_en_ready;
 extern sem_t sem_procesos_en_block;
-extern sem_t sem_procesos_en_running;
+extern sem_t sem_procesos_en_exec;
 
 
 void inicializar_planificador();
@@ -31,7 +31,7 @@ t_pcb* obtener_siguiente_proceso();
 void agregar_a_block(t_pcb* proceso);
 t_pcb* quitar_de_block(uint32_t pid);
 
-void agregar_a_running(t_pcb* proceso);
-void quitar_de_running(uint32_t pid);
+void agregar_a_exec(t_pcb* proceso);
+void quitar_de_exec(uint32_t pid);
 
 #endif
