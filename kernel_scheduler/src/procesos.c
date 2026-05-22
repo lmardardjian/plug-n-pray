@@ -1,13 +1,13 @@
 #include "pcb.h"
 #include "procesos.h"
-#include <stdlib.h>
 #include <commons/log.h>
+#include <stdlib.h>
 
-t_list* p_activos_global = NULL;
+t_list* p_activos_global = NULL; // podríamos hacer uso de las funciones de listas
 
 
 typedef struct {
-    uint32_t pid;
+    uint32_t pid; //esta estructura está medio al pedo
 } t_busqueda;
 
 static bool mismo_pid(void* elemento, void* contexto) {
@@ -29,7 +29,7 @@ t_pcb* crear_pcb(uint32_t pid, uint32_t prioridad) {
     return proceso;
 }
 
-void destruir_pcb(void* ptr) {
+void destruir_pcb(void* ptr) { // está mal, hay que con el puntero liberar cada elemento
     free(ptr);
 }
 
@@ -74,10 +74,6 @@ static char* estado_to_string(t_estado estado) {
 }
 
 void cambiar_estado(t_pcb *proceso, t_estado nuevo_estado, t_log* logger) {
-    log_info(logger, "## (%d) Pasa del estado %s al estado %s",
-             proceso->pid,
-             estado_to_string(proceso->estado),
-             estado_to_string(nuevo_estado));
-             
+    log_info(logger, "## (%d) Pasa del estado %s al estado %s", proceso->pid, estado_to_string(proceso->estado), estado_to_string(nuevo_estado));
     proceso -> estado = nuevo_estado;
 }

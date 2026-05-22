@@ -1,10 +1,10 @@
 #ifndef PROCESOS_H
 #define PROCESOS_H
+
 #include "pcb.h"
 #include <commons/collections/list.h>
 #include <commons/log.h>
 #include <stdbool.h>
-#include <stdint.h>
 
 extern t_list* p_activos_global;
 

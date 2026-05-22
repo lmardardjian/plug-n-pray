@@ -36,7 +36,7 @@ int conectar_a_modulo(t_log* logger, char* ip, char* puerto, char* nombre_modulo
     int conexion = crear_conexion(ip, puerto);
     if (conexion == -1) {
         log_error(logger, "FN_CONECT_CNX: No se pudo conectar a %s", nombre_modulo);
-        return -1;
+        return -1; //-1 magic number?
     }
 
     log_info(logger, "FN_CONECT_CNX: Conectado correctamente a %s", nombre_modulo);

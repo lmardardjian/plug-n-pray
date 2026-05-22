@@ -1,18 +1,18 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <pthread.h>
-#include <commons/config.h>
-#include <commons/log.h>
-#include <commons/collections/list.h>
-#include "utils/conexion.h"
-#include "utils/mensajes.h"
-#include "utils/hilos.h"
-#include <sys/socket.h>
+#include "pcb.h"
+#include "procesos.h"
 #include "scheduler.h"
 #include "corto_plazo.h"
-#include "procesos.h"
-#include "pcb.h"
+#include "utils/hilos.h"
+#include "utils/conexion.h"
+#include "utils/mensajes.h"
+#include <commons/collections/list.h> //DEMASIADOS INCLUDES!!!!111!!1!
+#include <commons/config.h>
+#include <commons/log.h>
+#include <sys/socket.h>
+#include <pthread.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 // -- Globales -----------------------------------------
 
@@ -20,9 +20,9 @@ t_log* logger;
 t_config* config;
 int servidor;
 int socket_kernel_memory;
-uint32_t proximo_pid = 0;
-bool blue_screen_of_death = false;
-pthread_mutex_t mutex_pid;
+uint32_t proximo_pid = 0;           // cambio de proceso con el planificador?
+bool blue_screen_of_death = false;  // hacemos que sea un bool quee modifica KM o un msj que envia el KM?
+pthread_mutex_t mutex_pid;          // esto se usa en algún lado?
 
 // -- Identificación de módulos conectados -------------
 
@@ -47,7 +47,7 @@ void* atender_cpu(void* arg) {
 
         if (proceso == NULL) {
             log_error(logger, "Proceso %d no encontrado", pid);
-            continue;
+            continue; //el continue está bien? si no encontré el proceso...
         }
 
         switch (opcode) {
@@ -63,24 +63,8 @@ void* atender_cpu(void* arg) {
                 manejar_exit(socket_cpu, proceso);
                 break;
 
-            case KS_INIT_PROC:
-                uint32_t pid_nuevo;
-                uint32_t prioridad;
-                char path[256];
-                recibir_uint32(socket_cpu, &pid_nuevo);
-                recibir_uint32(socket_cpu, &prioridad);
-                recibir_string(socket_cpu, path, sizeof(path));
-
-                t_pcb* nuevo = crear_pcb(pid_nuevo, prioridad);
-                list_add(p_activos_global, nuevo);
-                log_info(logger, "## (%d) Se crea el proceso - Estado: NEW", pid_nuevo);
-
-                enviar_opcode(socket_kernel_memory, KM_CREAR_PROCESO);
-                enviar_uint32(socket_kernel_memory, pid_nuevo);
-                enviar_string(socket_kernel_memory, path);
-
-                cambiar_estado(nuevo, ESTADO_READY, logger);
-                agregar_a_ready(nuevo);
+            case KS_INIT_PROC: // mover a una función como los otros case
+                manejar_iniciar_proceso(socket_cpu);
                 break;
 
             default:
@@ -106,7 +90,8 @@ void* atender_io(void* arg) {
             recibir_uint32(socket_io, &pid);
 
             t_pcb* proceso = quitar_de_block(pid);
-            if (proceso == NULL) continue;
+            if (proceso == NULL) 
+                continue; //mismo problema del continue?
 
             cambiar_estado(proceso, ESTADO_READY, logger);
             agregar_a_ready(proceso);
@@ -122,10 +107,10 @@ void* atender_io(void* arg) {
 void* escuchar_conexiones(void* arg) {
     while (1) {
         int cliente = esperar_cliente_modulo(logger, servidor, "Kernel Scheduler");
-        if (cliente == -1) continue;
+        if (cliente == -1) 
+        continue; // no debería tirar error a través de un log? es continue o break?
 
-        // Identificamos quién se conectó via handshake
-        int32_t id_modulo = handshake_servidor(cliente, logger);
+        int32_t id_modulo = handshake_servidor(cliente, logger); // y si el handshake falla?
 
         int* socket = malloc(sizeof(int));
         *socket = cliente;
@@ -151,7 +136,7 @@ void* escuchar_conexiones(void* arg) {
 int main(int argc, char* argv[]) {
 
     if (argc < 3) {
-    printf("Uso: %s [config] [path_proceso_inicial]\n", argv[0]);
+    printf("Uso: %s [config] [path_proceso_inicial]\n", argv[0]); // raro ese string
     return EXIT_FAILURE;
     }
 
@@ -171,18 +156,20 @@ int main(int argc, char* argv[]) {
 
     // Inicializar las estructuras
     pthread_mutex_init(&mutex_pid, NULL);
-    p_activos_global = list_create();
+    p_activos_global = list_create();     //todo esto podría ser una función
     inicializar_planificador();
     inicializar_corto_plazo();
 
     // Conectar con Kernel Memory
-    char* ip_km    = config_get_string_value(config, "IP_KERNEL_MEMORY");
+    char* ip_km = config_get_string_value(config, "IP_KERNEL_MEMORY");
     char* puerto_km = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
     socket_kernel_memory = conectar_a_modulo(logger, ip_km, puerto_km, "Kernel Memory");
+
     if (socket_kernel_memory == -1) {
         log_error(logger, "No se pudo conectar al Kernel Memory");
         return EXIT_FAILURE;
     }
+
     handshake_cliente(socket_kernel_memory, logger, MODULO_KERNEL_SCHEDULER);
     log_info(logger, "## Conectado a Kernel Memory");
 
@@ -190,18 +177,18 @@ int main(int argc, char* argv[]) {
     char* puerto = config_get_string_value(config, "PUERTO_ESCUCHA");
     servidor = iniciar_servidor_modulo(logger, puerto, "Kernel Scheduler");
     if (servidor == -1) {
-        return EXIT_FAILURE;
+        return EXIT_FAILURE; //falta log de error
     }
 
     // Arrancar hilo dispatcher e hilo servidor
-    crear_hilo(hilo_dispatcher, NULL);
-    crear_hilo(escuchar_conexiones, NULL);
+    crear_hilo(hilo_dispatcher, NULL);          //tenemos funciones que hacen esto
+    crear_hilo(escuchar_conexiones, NULL);      //se mata a estos hilos?
 
     // Crear proceso inicial PID 0
     char* path_proceso_inicial = argv[2];
-    t_pcb* proceso_inicial = crear_pcb(0, __INT32_MAX__); // prioridad máxima
+    t_pcb* proceso_inicial = crear_pcb(0, __INT32_MAX__); // __INT32_MAX__???? Quién te conoce
     list_add(p_activos_global, proceso_inicial);
-    log_info(logger, "## (0) Se crea el proceso - Estado: NEW");
+    log_info(logger, "## (0) Se crea el proceso - Estado: NEW"); // raro el string
 
     // Avisar al Kernel Memory que cree el proceso
     enviar_opcode(socket_kernel_memory, KM_CREAR_PROCESO);
@@ -227,6 +214,12 @@ int main(int argc, char* argv[]) {
     cerrar_conexion(servidor, logger);
     config_destroy(config);
     log_destroy(logger);
+
+
+
+    //qué onda las funciones comentadas de acá abajo?
+
+
 
     /*
     int cliente = esperar_cliente_modulo(logger, servidor, "Kernel Scheduler");

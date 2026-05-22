@@ -28,7 +28,7 @@ void inicializar_planificador() {
     sem_init(&sem_procesos_en_exec, 0, 0);
 }
 
-// -- READY -----------------------------------------
+// ------------------- READY -------------------------
 
 void agregar_a_ready(t_pcb* proceso) {
     pthread_mutex_lock(&mutex_ready);   //Wait, cierra el candado
@@ -45,7 +45,7 @@ t_pcb* obtener_siguiente_proceso() {
     return proceso;
 }
 
-// -- BLOCK -----------------------------------------
+// -------------- BLOCK -----------------------
 
 void agregar_a_block(t_pcb* proceso) { 
     pthread_mutex_lock(&mutex_block);
@@ -69,12 +69,11 @@ t_pcb* quitar_de_block(uint32_t pid) { //Revisar
             queue_push(cola_block, proceso);
         }
     }
-
     pthread_mutex_unlock(&mutex_block);
     return encontrado;
 }
 
-// -- EXECUTE -----------------------------------------
+// ----------------- EXECUTE -----------------------
 
 void agregar_a_exec(t_pcb* proceso) {
     pthread_mutex_lock(&mutex_exec);
@@ -93,11 +92,3 @@ void quitar_de_exec(uint32_t pid) {
     }
     pthread_mutex_unlock(&mutex_exec);
 }
-
-/*Hay que revisar esto. Es necesario hacer una función que llame a obtener_siguiente_proceso
-teniendo en cuenta el planificador que se haya especificado. Si es FIFO no hay problema ya 
-que queue_pop funca para colas, si es RR también funcionaría ya que su lista de procesos que
-están en ready también es una cola, el problema es si el planificador es por prioridades
-ya que habría que hacer uso de la función en cada cola desde la prioridad máxima y hasta la 
-mínima si no hubiese elementos en las otras.*/
-

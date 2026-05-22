@@ -1,12 +1,10 @@
-#include "corto_plazo.h"
-#include "scheduler.h"
-#include "pcb.h"
 #include "procesos.h"
+#include "scheduler.h"
+#include "corto_plazo.h"
 #include "utils/conexion.h"
-#include "utils/mensajes.h"
-#include <stdlib.h>
+#include <commons/config.h>
 #include <commons/log.h>
-#include "commons/config.h"
+#include <stdlib.h>
 
 extern t_log* logger;
 extern t_config* config;
@@ -21,6 +19,7 @@ void inicializar_corto_plazo() {
     cola_cpus_libres = queue_create();
     pthread_mutex_init(&mutex_cpus, NULL);
     sem_init(&sem_cpus_libres, 0, 0);
+
     lista_timers = list_create();
     pthread_mutex_init(&mutex_timers, NULL);
 }
@@ -39,6 +38,7 @@ static int obtener_cpu_libre() {
     pthread_mutex_lock(&mutex_cpus);
     int* socket = queue_pop(cola_cpus_libres);
     pthread_mutex_unlock(&mutex_cpus);
+
     int fd = *socket; //File Descriptor (fd) = socket_id
     free(socket);
     return fd;
@@ -48,7 +48,7 @@ static int obtener_cpu_libre() {
 
 void* hilo_dispatcher(void* arg) {
     char* algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
-    uint32_t quantum = config_get_int_value(config, "RR_QUANTUM");
+    uint32_t quantum = config_get_int_value(config, "RR_QUANTUM"); //esto no debería estar en un if?
 
     while (1) {
         
@@ -66,14 +66,14 @@ void* hilo_dispatcher(void* arg) {
             args->quantum_ms = quantum;
 
             pthread_t timer;
-            pthread_create(&timer, NULL, hilo_quantum, args);
+            pthread_create(&timer, NULL, hilo_quantum, args); //tenemos una función crear_hilo
             pthread_detach(timer);
 
             // Guardamos el timer para poder cancelarlo
             guardar_timer(cpu, timer);
         }
     }
-    return NULL;
+    return NULL; //return?
 }
 
 //-- MANEJADOR DE SYSCALLS -----------------------------
@@ -89,8 +89,9 @@ void manejar_syscall_io(int socket_cpu, t_pcb* proceso, op_code tipo_io) {
 
     // Reenviamos la syscall al módulo IO correspondiente
     // (el socket del IO lo tiene que proveer el contexto de conexiones)
-    log_info(logger, "## (%d) - Solicitó syscall: %s", proceso->pid, tipo_io == IO_EJECUTAR ? "IO" : "DESCONOCIDA");
 
+    log_info(logger, "## (%d) - Solicitó syscall: %s", proceso->pid, tipo_io == IO_EJECUTAR ? "IO" : "DESCONOCIDA");
+    //el if adentro del log info funca? mirá vo'
 }
 
 void manejar_exit(int socket_cpu, t_pcb* proceso) {
@@ -105,6 +106,26 @@ void manejar_exit(int socket_cpu, t_pcb* proceso) {
 
     agregar_cpu_libre(socket_cpu);
 
+}
+
+void manejar_iniciar_proceso(int socket_cpu) {
+    uint32_t pid_nuevo;
+    uint32_t prioridad;
+    char path[256];
+    recibir_uint32(socket_cpu, &pid_nuevo);
+    recibir_uint32(socket_cpu, &prioridad);
+    recibir_string(socket_cpu, path, sizeof(path));
+
+    t_pcb* nuevo = crear_pcb(pid_nuevo, prioridad);
+    list_add(p_activos_global, nuevo);
+    log_info(logger, "## (%d) Se crea el proceso - Estado: NEW", pid_nuevo);
+
+    enviar_opcode(socket_kernel_memory, KM_CREAR_PROCESO);
+    enviar_uint32(socket_kernel_memory, pid_nuevo);
+    enviar_string(socket_kernel_memory, path);
+
+    cambiar_estado(nuevo, ESTADO_READY, logger);
+    agregar_a_ready(nuevo);
 }
 
 void manejar_fin_quantum(int socket_cpu, t_pcb* proceso) {
@@ -143,8 +164,10 @@ static void cancelar_timer(int socket_cpu) {
     pthread_mutex_unlock(&mutex_timers);
 }
 
+
+
 // Para socket_cpu -> hilo timer activo
-typedef struct {
+typedef struct {                        //estas dos estructuras a un .h
     int      socket_cpu;
     pthread_t hilo_timer;
     bool     timer_activo;
@@ -165,7 +188,7 @@ static void* hilo_quantum(void* arg) {
     uint32_t quantum = args->quantum_ms;
     free(args);
 
-    usleep(quantum * 1000);
+    usleep(quantum * 1000); //rara esta función, no me sale la definición. falta .h?
 
     // Si llegamos acá, venció el quantum — mandamos interrupción a la CPU
     log_info(logger, "Quantum vencido, enviando interrupción a CPU %d", socket_cpu);

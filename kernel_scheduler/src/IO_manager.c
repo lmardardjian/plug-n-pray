@@ -1,19 +1,14 @@
-#include "IO_manager.h"
-#include "scheduler.h"
 #include "procesos.h"
+#include "scheduler.h"
+#include "IO_manager.h"
 #include "utils/conexion.h"
-#include "utils/constantes.h"
+#include "utils/constantes.h" //DEMASIADOS INCLUDES!!!!111!!!!1!!!
+#include <commons/collections/list.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <pthread.h>
-#include <commons/collections/list.h>
 
-// ---------------------------------------------------------------------------
-// Estructura interna de una interfaz IO conectada
-// Guardamos también el último request despachado para poder acceder a
-// dir_logica/size cuando llega la respuesta de STDIN.
-// ---------------------------------------------------------------------------
 typedef struct {
     char *nombre;
     tipo_io tipo;
@@ -21,19 +16,19 @@ typedef struct {
     t_log *logger;
 
     // Guardamos el request en vuelo (una IO atiende un proceso a la vez)
-    t_io_request req_en_vuelo;
+    t_io_request req_en_vuelo; //esto qué es?
     pthread_mutex_t mutex_req;
 } t_io_interfaz;
 
 // Lista de interfaces registradas
-static t_list *s_interfaces = NULL;
+static t_list *s_interfaces = NULL; //interfaces sería los i/o?
 static pthread_mutex_t s_mutex_interfaces = PTHREAD_MUTEX_INITIALIZER;
 
 // Socket hacia Kernel Memory (lo recibimos al registrar la primera interfaz)
-static int s_socket_kernel_memory = -1;
+static int s_socket_kernel_memory = -1; //feo
 
 
-static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) {
+static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) { //habría que usar la lista de i/o
     pthread_mutex_lock(&s_mutex_interfaces);
     t_io_interfaz* resultado = NULL;
     for (int i = 0; i < list_size(s_interfaces); i++) {
