@@ -16,4 +16,12 @@ void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger);
 uint32_t leer_registro(t_contexto* ctx, char* nombre);
 void     escribir_registro(t_contexto* ctx, char* nombre, uint32_t valor);
 
+typedef struct {
+    tipo_instruccion tipo;
+    char param1[32];
+    char param2[32];
+} t_instruccion;
+
+t_instruccion decode(char* texto);
+
 #endif

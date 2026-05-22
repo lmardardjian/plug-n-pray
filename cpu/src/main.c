@@ -1,56 +1,74 @@
+// main.c
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+
 #include <commons/config.h>
 #include <commons/log.h>
+
 #include "utils/conexion.h"
-#include <string.h>
-#include <sys/socket.h>
-#include <stdint.h>
-#include "ciclo.h"
+#include "utils/mensajes.h"
+
+#include "cpu.h"
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
         printf("Uso: ./cpu [config] [identificador]\n");
         return EXIT_FAILURE;
     }
-
     t_config* config = config_create(argv[1]);
-    if (!config) { printf("Error config\n"); return EXIT_FAILURE; }
 
-    // Logger con el identificador en el nombre del archivo
+    if (config == NULL) {
+        printf("Error al leer config\n");
+        return EXIT_FAILURE;
+    }
+
+    // LOGGER
     char nombre_log[64];
-    sprintf(nombre_log, "cpu_%s.log", argv[2]);
-    t_log* logger = log_create(nombre_log, "CPU", 1, LOG_LEVEL_INFO);
+    snprintf(nombre_log, sizeof(nombre_log), "cpu_%s.log", argv[2]);
 
-    // Conexión al Kernel Scheduler
-    char* ip_ks    = config_get_string_value(config, "IP_KERNEL_SCHEDULER");
-    char* puerto_ks = config_get_string_value(config, "PUERTO_KERNEL_SCHEDULER");
-    int fd_scheduler = conectar_a_modulo(logger, ip_ks, puerto_ks, "Kernel_Scheduler");
+    t_log* logger = log_create(nombre_log, "CPU", true, LOG_LEVEL_INFO);
+
+    // KERNEL SCHEDULER
+    char* ip_scheduler = config_get_string_value(config, "IP_KERNEL_SCHEDULER");
+    char* puerto_scheduler = config_get_string_value(config, "PUERTO_KERNEL_SCHEDULER");
+
+    int fd_scheduler = conectar_a_modulo(logger, ip_scheduler, puerto_scheduler, "Kernel Scheduler");
     handshake_cliente(fd_scheduler, logger, MODULO_CPU);
 
-    // Conexión al Kernel Memory
-    char* ip_km    = config_get_string_value(config, "IP_KERNEL_MEMORY");
-    char* puerto_km = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
-    int fd_memory = conectar_a_modulo(logger, ip_km, puerto_km, "Kernel_Memory");
+    // KERNEL MEMORY
+    char* ip_memory = config_get_string_value(config, "IP_KERNEL_MEMORY");
+    char* puerto_memory = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
+
+    int fd_memory = conectar_a_modulo(logger, ip_memory, puerto_memory, "Kernel Memory");
     handshake_cliente(fd_memory, logger, MODULO_CPU);
 
-    // Loop principal: esperar PID y ejecutar
+    // LOOP PRINCIPAL
     while (1) {
-        // El Scheduler nos manda el PID a ejecutar
+        /* ESTO PODRIA VENIR BIEN. QUE EL KS MANDE UN OP_CODE ANTES DEL PID
+            op_code codigo;
+            if (recibir_opcode(fd_scheduler, &codigo) <= 0) {
+                log_error(logger, "Kernel Scheduler desconectado");
+                break;
+            }
+            if (codigo != KS_DISPATCH_PID) {
+                log_warning(logger, "Opcode inesperado recibido: %d", codigo);
+                continue;
+            }
+        */
         uint32_t pid;
-        int r = recibir_uint32(fd_scheduler, &pid);
-        if (r <= 0) break; // scheduler cerró conexión
+        recibir_uint32(fd_scheduler, &pid);
 
         pid_actual = (int)pid;
         log_info(logger, "## CPU recibió PID: %d", pid_actual);
-
         ciclo_instruccion(fd_scheduler, fd_memory, logger);
     }
-
+    
     cerrar_conexion(fd_scheduler, logger);
     cerrar_conexion(fd_memory, logger);
     config_destroy(config);
     log_destroy(logger);
+
     return EXIT_SUCCESS;
 }
-

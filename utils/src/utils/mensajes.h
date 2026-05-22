@@ -21,11 +21,10 @@ typedef enum {
     RESPUESTA_ERROR,
 
     // mensajes cpu -> kernel scheduler
-    KS_FIN_QUANTUM,
+    KS_TICK_PROGRESS_CONTINUE,
     KS_SYSCALL_IO,
     KS_EXIT,
     KS_INIT_PROC
-
 } op_code;
 
 typedef enum {
@@ -68,5 +67,30 @@ typedef struct {
 
     // t_list* tabla_segmentos; PARA MAS ADELANTE EN EL TP
 } t_contexto;
+
+// instrucciones que entiende la cpu
+typedef enum {
+    INST_NOOP,
+    INST_SET,
+    INST_SUM,
+    INST_SUB,
+    INST_JNZ,
+
+    INST_MUTEX_CREATE,
+    INST_MUTEX_LOCK,
+    INST_MUTEX_UNLOCK,
+
+    INST_MEM_ALLOC,
+    INST_MEM_FREE,
+
+    INST_SLEEP,
+    INST_STDOUT,
+    INST_STDIN,
+
+    INST_INIT_PROC,
+    INST_EXIT,
+
+    INST_DESCONOCIDA
+} tipo_instruccion;
 
 #endif
