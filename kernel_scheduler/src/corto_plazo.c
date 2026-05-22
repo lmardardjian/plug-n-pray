@@ -6,8 +6,10 @@
 #include "utils/mensajes.h"
 #include <stdlib.h>
 #include <commons/log.h>
+#include "commons/config.h"
 
 extern t_log* logger;
+extern t_config* config;
 
 //-- COLA DE CPUs LIBRES ----------------------
 
@@ -19,6 +21,8 @@ void inicializar_corto_plazo() {
     cola_cpus_libres = queue_create();
     pthread_mutex_init(&mutex_cpus, NULL);
     sem_init(&sem_cpus_libres, 0, 0);
+    lista_timers = list_create();
+    pthread_mutex_init(&mutex_timers, NULL);
 }
 
 void agregar_cpu_libre(int socket_cpu) {
@@ -43,6 +47,9 @@ static int obtener_cpu_libre() {
 //-- DISPATCHER -----------------------------
 
 void* hilo_dispatcher(void* arg) {
+    char* algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
+    uint32_t quantum = config_get_int_value(config, "RR_QUANTUM");
+
     while (1) {
         
         t_pcb* proceso = obtener_siguiente_proceso();
@@ -53,7 +60,18 @@ void* hilo_dispatcher(void* arg) {
 
         enviar_uint32(cpu, proceso->pid);
 
-        log_info(logger, "## (%d) Pasa del estado READY al estado EXEC", proceso->pid);
+        if (strcmp(algoritmo, "RR") == 0) {
+            t_args_timer* args = malloc(sizeof(t_args_timer));
+            args->socket_cpu = cpu;
+            args->quantum_ms = quantum;
+
+            pthread_t timer;
+            pthread_create(&timer, NULL, hilo_quantum, args);
+            pthread_detach(timer);
+
+            // Guardamos el timer para poder cancelarlo
+            guardar_timer(cpu, timer);
+        }
     }
     return NULL;
 }
@@ -62,6 +80,7 @@ void* hilo_dispatcher(void* arg) {
 
 void manejar_syscall_io(int socket_cpu, t_pcb* proceso, op_code tipo_io) {
 
+    cancelar_timer(socket_cpu);
     quitar_de_exec(proceso->pid);
     cambiar_estado(proceso, ESTADO_BLOCK, logger);
     agregar_a_block(proceso);
@@ -76,6 +95,7 @@ void manejar_syscall_io(int socket_cpu, t_pcb* proceso, op_code tipo_io) {
 
 void manejar_exit(int socket_cpu, t_pcb* proceso) {
     
+    cancelar_timer(socket_cpu);
     quitar_de_exec(proceso -> pid);
     cambiar_estado(proceso, ESTADO_EXIT, logger);
 
@@ -89,6 +109,7 @@ void manejar_exit(int socket_cpu, t_pcb* proceso) {
 
 void manejar_fin_quantum(int socket_cpu, t_pcb* proceso) {
     
+    cancelar_timer(socket_cpu);
     quitar_de_exec(proceso -> pid);
     cambiar_estado(proceso, ESTADO_READY, logger);
     agregar_a_ready(proceso);
@@ -97,4 +118,58 @@ void manejar_fin_quantum(int socket_cpu, t_pcb* proceso) {
 
     agregar_cpu_libre(socket_cpu);
 
+}
+
+static void guardar_timer(int socket_cpu, pthread_t timer) {
+    pthread_mutex_lock(&mutex_timers);
+    t_cpu_timer* entry = malloc(sizeof(t_cpu_timer));
+    entry -> socket_cpu  = socket_cpu;
+    entry -> hilo_timer  = timer;
+    list_add(lista_timers, entry);
+    pthread_mutex_unlock(&mutex_timers);
+}
+
+static void cancelar_timer(int socket_cpu) {
+    pthread_mutex_lock(&mutex_timers);
+    for (int i = 0; i < list_size(lista_timers); i++) {
+        t_cpu_timer* entry = list_get(lista_timers, i);
+        if (entry->socket_cpu == socket_cpu) {
+            pthread_cancel(entry->hilo_timer);
+            list_remove(lista_timers, i);
+            free(entry);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&mutex_timers);
+}
+
+// Para socket_cpu -> hilo timer activo
+typedef struct {
+    int      socket_cpu;
+    pthread_t hilo_timer;
+    bool     timer_activo;
+} t_cpu_timer;
+
+static t_list* lista_timers;
+static pthread_mutex_t mutex_timers;
+
+// El timer
+typedef struct {
+    int      socket_cpu;
+    uint32_t quantum_ms;
+} t_args_timer;
+
+static void* hilo_quantum(void* arg) {
+    t_args_timer* args = (t_args_timer*) arg;
+    int socket_cpu  = args->socket_cpu;
+    uint32_t quantum = args->quantum_ms;
+    free(args);
+
+    usleep(quantum * 1000);
+
+    // Si llegamos acá, venció el quantum — mandamos interrupción a la CPU
+    log_info(logger, "Quantum vencido, enviando interrupción a CPU %d", socket_cpu);
+    enviar_opcode(socket_cpu, KS_FIN_QUANTUM);
+
+    return NULL;
 }
