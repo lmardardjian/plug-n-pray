@@ -1,10 +1,11 @@
 #include "procesos.h"
 #include "scheduler.h"
 #include "corto_plazo.h"
+#include "utils/hilos.h"
 #include "utils/conexion.h"
 #include <commons/config.h>
-#include <commons/log.h>
 #include <stdlib.h>
+#include <string.h>
 
 extern t_log* logger;
 extern t_config* config;
@@ -14,6 +15,8 @@ extern t_config* config;
 static t_queue* cola_cpus_libres;
 static pthread_mutex_t mutex_cpus;
 static sem_t sem_cpus_libres;
+static t_list* lista_timers;
+static pthread_mutex_t mutex_timers;
 
 void inicializar_corto_plazo() {
     cola_cpus_libres = queue_create();
@@ -48,7 +51,10 @@ static int obtener_cpu_libre() {
 
 void* hilo_dispatcher(void* arg) {
     char* algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
-    uint32_t quantum = config_get_int_value(config, "RR_QUANTUM"); //esto no debería estar en un if?
+
+    if(strcmp(algoritmo, "RR")==0) {
+    uint32_t quantum = config_get_int_value(config, "RR_QUANTUM"); 
+    }
 
     while (1) {
         
@@ -65,9 +71,7 @@ void* hilo_dispatcher(void* arg) {
             args->socket_cpu = cpu;
             args->quantum_ms = quantum;
 
-            pthread_t timer;
-            pthread_create(&timer, NULL, hilo_quantum, args); //tenemos una función crear_hilo
-            pthread_detach(timer);
+            crear_hilo(hilo_quantum, args);
 
             // Guardamos el timer para poder cancelarlo
             guardar_timer(cpu, timer);
@@ -108,7 +112,7 @@ void manejar_exit(int socket_cpu, t_pcb* proceso) {
 
 }
 
-void manejar_iniciar_proceso(int socket_cpu) {
+void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
     uint32_t pid_nuevo;
     uint32_t prioridad;
     char path[256];
@@ -163,24 +167,6 @@ static void cancelar_timer(int socket_cpu) {
     }
     pthread_mutex_unlock(&mutex_timers);
 }
-
-
-
-// Para socket_cpu -> hilo timer activo
-typedef struct {                        //estas dos estructuras a un .h
-    int      socket_cpu;
-    pthread_t hilo_timer;
-    bool     timer_activo;
-} t_cpu_timer;
-
-static t_list* lista_timers;
-static pthread_mutex_t mutex_timers;
-
-// El timer
-typedef struct {
-    int      socket_cpu;
-    uint32_t quantum_ms;
-} t_args_timer;
 
 static void* hilo_quantum(void* arg) {
     t_args_timer* args = (t_args_timer*) arg;

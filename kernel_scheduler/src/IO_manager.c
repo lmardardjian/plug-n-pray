@@ -1,7 +1,5 @@
 #include "procesos.h"
 #include "scheduler.h"
-#include "IO_manager.h"
-#include "utils/conexion.h"
 #include "utils/constantes.h" //DEMASIADOS INCLUDES!!!!111!!!!1!!!
 #include <commons/collections/list.h>
 #include <pthread.h>
@@ -132,7 +130,7 @@ static void* hilo_io_listener(void* arg) {
         t_pcb* proceso = quitar_de_block(pid_finalizado);
         if (proceso == NULL) {
             log_error(io->logger, "PID %d no estaba en BLOCK al finalizar IO", pid_finalizado);
-            continue; //raro este continue.
+            break;
         }
 
         if (proceso->estado == ESTADO_SUSP_BLOCK) {

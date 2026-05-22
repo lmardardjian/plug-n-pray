@@ -2,10 +2,11 @@
 #define SCHEDULER_H
 
 #include "pcb.h"
-#include <pthread.h>
-#include <semaphore.h>
 #include <commons/collections/queue.h>
 #include <commons/collections/list.h>
+#include <semaphore.h>
+#include <pthread.h>
+#include <stdlib.h>
 
 // Colas y listas
 extern t_queue *cola_ready;

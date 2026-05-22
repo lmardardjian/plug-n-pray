@@ -23,7 +23,7 @@ int esperar_cliente_modulo(t_log* logger, int servidor, char* nombre_modulo) {
     int cliente = esperar_cliente(servidor);
     if (cliente == -1) {
         log_error(logger, "FN_ESPERAR_CNX: Error al aceptar cliente en %s", nombre_modulo);
-        return -1;
+        return cliente;
     }
 
     log_info(logger, "FN_ESPERAR_CNX: Cliente conectado a %s", nombre_modulo);

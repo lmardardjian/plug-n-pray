@@ -1,5 +1,4 @@
 #include "scheduler.h"
-#include <stdlib.h>
 
 t_queue* cola_ready;
 t_queue* cola_block;

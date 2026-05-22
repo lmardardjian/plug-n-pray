@@ -1,7 +1,4 @@
-#include "pcb.h"
 #include "procesos.h"
-#include <commons/log.h>
-#include <stdlib.h>
 
 t_list* p_activos_global = NULL; // podríamos hacer uso de las funciones de listas
 

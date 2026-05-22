@@ -1,15 +1,10 @@
-#include "pcb.h"
 #include "procesos.h"
 #include "scheduler.h"
 #include "corto_plazo.h"
 #include "utils/hilos.h"
-#include "utils/conexion.h"
-#include "utils/mensajes.h"
-#include <commons/collections/list.h> //DEMASIADOS INCLUDES!!!!111!!1!
+#include "utils/conexion.h" //DEMASIADOS INCLUDES!!!!111!!1!
 #include <commons/config.h>
-#include <commons/log.h>
 #include <sys/socket.h>
-#include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -48,7 +43,7 @@ void* atender_cpu(void* arg) {
 
         if (proceso == NULL) {
             log_error(logger, "Proceso %d no encontrado", pid);
-            continue; //el continue está bien? si no encontré el proceso...
+            break;
         }
 
         switch (opcode) {
@@ -72,8 +67,8 @@ void* atender_cpu(void* arg) {
                 manejar_exit(socket_cpu, proceso);
                 break;
 
-            case KS_INIT_PROC: // mover a una función como los otros case
-                manejar_iniciar_proceso(socket_cpu);
+            case KS_INIT_PROC: 
+                manejar_iniciar_proceso(socket_cpu, socket_kernel_memory);
                 break;
 
             default:
@@ -100,7 +95,7 @@ void* atender_io(void* arg) {
 
             t_pcb* proceso = quitar_de_block(pid);
             if (proceso == NULL) 
-                continue; //mismo problema del continue?
+                break; //falta un log acá
 
             cambiar_estado(proceso, ESTADO_READY, logger);
             agregar_a_ready(proceso);
@@ -180,7 +175,7 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    handshake_cliente(socket_kernel_memory, logger, MODULO_KERNEL_SCHEDULER);
+    handshake_cliente(socket_kernel_memory, logger, MODULO_KERNEL_SCHEDULER); //falta si no sale bien el handshake
     log_info(logger, "## Conectado a Kernel Memory");
 
     // Iniciar servidor para CPUs e IOs
@@ -191,12 +186,12 @@ int main(int argc, char* argv[]) {
     }
 
     // Arrancar hilo dispatcher e hilo servidor
-    crear_hilo(hilo_dispatcher, NULL);          //tenemos funciones que hacen esto
-    crear_hilo(escuchar_conexiones, NULL);      //se mata a estos hilos?
+    crear_hilo(hilo_dispatcher, NULL);
+    crear_hilo(escuchar_conexiones, NULL);
 
     // Crear proceso inicial PID 0
     char* path_proceso_inicial = argv[2];
-    t_pcb* proceso_inicial = crear_pcb(0, __INT32_MAX__); // __INT32_MAX__???? Quién te conoce
+    t_pcb* proceso_inicial = crear_pcb(0, 0);
     list_add(p_activos_global, proceso_inicial);
     log_info(logger, "## (0) Se crea el proceso - Estado: NEW"); // raro el string
 
