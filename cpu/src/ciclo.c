@@ -1,12 +1,9 @@
 #include "cpu.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-
 #include <commons/log.h>
-
 #include "utils/conexion.h"
 #include "utils/mensajes.h"
 
@@ -19,7 +16,6 @@ static char* fetch(int fd_memory, uint32_t pc, t_log* logger) {
     enviar_uint32(fd_memory, pc);
 
     char* instruccion = malloc(256);
-
     if(instruccion == NULL) {
         return NULL;
     }
@@ -30,7 +26,6 @@ static char* fetch(int fd_memory, uint32_t pc, t_log* logger) {
     }
 
     log_info(logger, "## PID: %d - FETCH - Program Counter: %d", pid_actual, pc);
-
     return instruccion;
 }
 
@@ -92,12 +87,11 @@ static int check_interrupt(int fd_scheduler) {
     if(recibir_uint32(fd_scheduler, &interrupcion) <= 0) {
         return 1;
     }
-    return interrupcion;
+        return interrupcion;
 }
 
 
 static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd_memory, t_log* logger) {
-    
     log_info(logger, "## PID: %d - Ejecutando: %s %s %s", pid_actual, instruccion_to_string(inst.tipo), inst.param1, inst.param2);
     int pc_modificado = 0;
     switch(inst.tipo) {
@@ -166,7 +160,6 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
     if(!pc_modificado) {
         ctx->pc++;
     }
-
     return 0;
 }
 
@@ -178,7 +171,6 @@ void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger) {
 
     int ejecutando = 1;
     while(ejecutando) {
-
         char* texto = fetch(
             fd_memory,
             ctx.pc,
@@ -186,59 +178,28 @@ void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger) {
         );
 
         if(texto == NULL) {
-
             log_error(
                 logger,
                 "Error en FETCH"
             );
-
             break;
         }
 
-        // ==========================================
-        // DECODE
-        // ==========================================
-
+        // DECODE 
         t_instruccion inst = decode(texto);
-
         free(texto);
 
-        // ==========================================
-        // EXECUTE
-        // ==========================================
-
-        int fue_syscall = execute(
-            inst,
-            &ctx,
-            fd_scheduler,
-            fd_memory,
-            logger
-        );
-
-        if(fue_syscall) {
+        // EXECUTE 
+        int fue_syscall = execute(inst, &ctx, fd_scheduler, fd_memory, logger);
+        if(fue_syscall) { 
             break;
         }
 
-        // ==========================================
-        // CHECK INTERRUPT
-        // ==========================================
-
-        int interrupcion = check_interrupt(
-            fd_scheduler
-        );
-
+        // CHECK INTERRUPT 
+        int interrupcion = check_interrupt(fd_scheduler);
         if(interrupcion) {
-
-            log_info(
-                logger,
-                "## Interrupción recibida"
-            );
-
-            actualizar_contexto(
-                fd_memory,
-                &ctx
-            );
-
+            log_info( logger, "## Interrupción recibida");
+            actualizar_contexto(fd_memory,&ctx );
             break;
         }
     }
