@@ -74,6 +74,10 @@ int main(int argc, char* argv[]) {
     }
     log_info(logger, "Handshake realizado correctamente");
 
+    //Duda con esto de acá abajo
+
+    enviar_int(conexion, tipo);  // manda TIPO_IO_SLEEP/STDIN/STDOUT 
+
     // LOOP PRINCIPAL
     log_info(logger, "IO Entrando en loop principal de espera");
     while (1)
@@ -89,12 +93,12 @@ int main(int argc, char* argv[]) {
         
         if(codigo == IO_EJECUTAR)
         {
-            int pid;
+            uint32_t pid;
             char mensaje[BUFFER_SIZE];
             memset(mensaje, 0, BUFFER_SIZE);
             // PID
             log_info(logger, "Recibiendo PID...");
-            if(recibir_int(conexion, &pid) <= 0)
+            if(recibir_uint32(conexion, &pid) <= 0)
             {
                 log_error(logger, "Error recibiendo PID");
                 break;

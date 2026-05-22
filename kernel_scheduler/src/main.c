@@ -2,6 +2,8 @@
 #include "scheduler.h"
 #include "corto_plazo.h"
 #include "utils/hilos.h"
+#include "IO_manager.h"
+#include "utils/mensajes.h"
 #include "utils/conexion.h" //DEMASIADOS INCLUDES!!!!111!!1!
 #include <commons/config.h>
 #include <sys/socket.h>
@@ -124,7 +126,10 @@ void* escuchar_conexiones(void* arg) {
                 crear_hilo(atender_cpu, socket);
                 break;
             case MODULO_IO:
-                crear_hilo(atender_io, socket);
+                int tipo;
+                recibir_int(cliente, &tipo);
+                io_registrar_interfaz("io", (tipo_io)tipo, cliente, logger);
+                free(socket);
                 break;
             default:
                 log_warning(logger, "Módulo desconocido: %d", id_modulo);

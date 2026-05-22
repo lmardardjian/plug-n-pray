@@ -1,5 +1,7 @@
 #include "procesos.h"
 #include "scheduler.h"
+#include "IO_manager.h"
+#include "utils/mensajes.h"
 #include "utils/constantes.h" //DEMASIADOS INCLUDES!!!!111!!!!1!!!
 #include <commons/collections/list.h>
 #include <pthread.h>
@@ -23,7 +25,7 @@ static t_list *s_interfaces = NULL; //interfaces sería los i/o?
 static pthread_mutex_t s_mutex_interfaces = PTHREAD_MUTEX_INITIALIZER;
 
 // Socket hacia Kernel Memory (lo recibimos al registrar la primera interfaz)
-static int s_socket_kernel_memory = -1; //feo
+extern int socket_kernel_memory;
 
 
 static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) { //habría que usar la lista de i/o
@@ -68,29 +70,29 @@ static void enviar_a_io(t_io_interfaz* io, t_io_request* req) {
 }
 
 static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t size, t_log* logger) {
-    enviar_opcode(s_socket_kernel_memory, KM_MEM_READ);
+    enviar_opcode(socket_kernel_memory, KM_MEM_READ);
     
-    enviar_uint32(s_socket_kernel_memory, pid);
-    enviar_uint32(s_socket_kernel_memory, dir_logica);
-    enviar_uint32(s_socket_kernel_memory, size);
+    enviar_uint32(socket_kernel_memory, pid);
+    enviar_uint32(socket_kernel_memory, dir_logica);
+    enviar_uint32(socket_kernel_memory, size);
 
     char* buffer = malloc(size + 1);
     memset(buffer, 0, size + 1);
-    recibir_mensaje(s_socket_kernel_memory, buffer, size + 1, logger);
+    recibir_mensaje(socket_kernel_memory, buffer, size + 1, logger);
     return buffer;
 }
 
 static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* datos, uint32_t size, t_log* logger) {
-    enviar_opcode(s_socket_kernel_memory, KM_MEM_WRITE);
+    enviar_opcode(socket_kernel_memory, KM_MEM_WRITE);
 
-    enviar_uint32(s_socket_kernel_memory, pid);
-    enviar_uint32(s_socket_kernel_memory, dir_logica);
-    enviar_uint32(s_socket_kernel_memory, size);
+    enviar_uint32(socket_kernel_memory, pid);
+    enviar_uint32(socket_kernel_memory, dir_logica);
+    enviar_uint32(socket_kernel_memory, size);
 
-    enviar_mensaje(s_socket_kernel_memory, datos, logger);
+    enviar_mensaje(socket_kernel_memory, datos, logger);
 
     op_code ack;
-    recibir_opcode(s_socket_kernel_memory, &ack);
+    recibir_opcode(socket_kernel_memory, &ack);
 }
 
 static void* hilo_io_listener(void* arg) {
@@ -122,6 +124,9 @@ static void* hilo_io_listener(void* arg) {
             escribir_en_kernel_memory(pid_finalizado, req_copia.dir_logica, buffer, req_copia.size, io->logger);
         }
 
+        op_code respuesta;
+        recibir_opcode(io->socket_fd, &respuesta); //log?
+
         log_info(io->logger, "## (%d) finalizó IO y pasa a READY / SUSP. READY", pid_finalizado);
 
         if (req_copia.datos != NULL) 
@@ -148,8 +153,8 @@ void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, int 
     if (s_interfaces == NULL)
         s_interfaces = list_create();
 
-    if (s_socket_kernel_memory == -1)
-        s_socket_kernel_memory = socket_km;
+    if (socket_kernel_memory == -1)
+        socket_kernel_memory = socket_km;
 
     t_io_interfaz* io = malloc(sizeof(t_io_interfaz));
     io->nombre = strdup(nombre);
