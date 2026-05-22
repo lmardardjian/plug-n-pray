@@ -23,6 +23,8 @@ typedef enum {
     // mensajes cpu -> kernel scheduler
     KS_TICK_PROGRESS_CONTINUE,
     KS_SYSCALL_IO,
+    KS_MUTEX_LOCK,
+    KS_MUTEX_UNLOCK,
     KS_EXIT,
     KS_INIT_PROC
 } op_code;

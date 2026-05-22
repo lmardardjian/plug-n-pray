@@ -13,6 +13,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "mutex_manager.h"
 
 // -- Globales -----------------------------------------
 
@@ -57,6 +58,14 @@ void* atender_cpu(void* arg) {
 
             case KS_SYSCALL_IO:
                 manejar_syscall_io(socket_cpu, proceso, opcode);
+                break;
+            
+            case KS_MUTEX_LOCK:
+                manejar_mutex_lock(socket_cpu, proceso);
+                break;
+
+            case KS_MUTEX_UNLOCK:
+                manejar_mutex_unlock(socket_cpu, proceso);
                 break;
                 
             case KS_EXIT:
@@ -158,6 +167,7 @@ int main(int argc, char* argv[]) {
     pthread_mutex_init(&mutex_pid, NULL);
     p_activos_global = list_create();     //todo esto podría ser una función
     inicializar_planificador();
+    inicializar_mutexes();
     inicializar_corto_plazo();
 
     // Conectar con Kernel Memory
