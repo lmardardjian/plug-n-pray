@@ -23,7 +23,8 @@ typedef enum {
     // mensajes cpu -> kernel scheduler
     KS_FIN_QUANTUM,
     KS_SYSCALL_IO,
-    KS_EXIT
+    KS_EXIT,
+    KS_INIT_PROC
 
 } op_code;
 

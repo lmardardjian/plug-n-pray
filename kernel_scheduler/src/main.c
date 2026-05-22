@@ -54,12 +54,35 @@ void* atender_cpu(void* arg) {
             case KS_FIN_QUANTUM:
                 manejar_fin_quantum(socket_cpu, proceso);
                 break;
+
             case KS_SYSCALL_IO:
                 manejar_syscall_io(socket_cpu, proceso, opcode);
                 break;
+                
             case KS_EXIT:
                 manejar_exit(socket_cpu, proceso);
                 break;
+
+            case KS_INIT_PROC:
+                uint32_t pid_nuevo;
+                uint32_t prioridad;
+                char path[256];
+                recibir_uint32(socket_cpu, &pid_nuevo);
+                recibir_uint32(socket_cpu, &prioridad);
+                recibir_string(socket_cpu, path, sizeof(path));
+
+                t_pcb* nuevo = crear_pcb(pid_nuevo, prioridad);
+                list_add(p_activos_global, nuevo);
+                log_info(logger, "## (%d) Se crea el proceso - Estado: NEW", pid_nuevo);
+
+                enviar_opcode(socket_kernel_memory, KM_CREAR_PROCESO);
+                enviar_uint32(socket_kernel_memory, pid_nuevo);
+                enviar_string(socket_kernel_memory, path);
+
+                cambiar_estado(nuevo, ESTADO_READY, logger);
+                agregar_a_ready(nuevo);
+                break;
+
             default:
                 log_warning(logger, "Opcode desconocido desde CPU %d", socket_cpu);
                 break;
