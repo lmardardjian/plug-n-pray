@@ -2,12 +2,9 @@
 #define MUTEX_MANAGER_H
 
 #include "pcb.h"
-
-#include <stdbool.h>
-#include <pthread.h>
-
 #include <commons/collections/queue.h>
 #include <commons/collections/list.h>
+#include <pthread.h>
 
 typedef struct {
     char* nombre;

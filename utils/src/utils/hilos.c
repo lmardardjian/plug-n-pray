@@ -1,5 +1,4 @@
-#include "utils/hilos.h"
-#include <pthread.h>
+#include "hilos.h"
 
 void crear_hilo(void* (*funcion)(void*), void* arg)
 {

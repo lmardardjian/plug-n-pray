@@ -1,10 +1,4 @@
 #include "sockets.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <sys/socket.h>
 
 // Esto anda. mati. Da errores de compilacion el vs porque no es un archivo compilable pero funciona bien y 
 // utiliza los metodos que expone el blog de ssoo en la parte de sockets en https://docs.utnso.com.ar/guias/linux/sockets
@@ -36,9 +30,7 @@ int crear_conexion(char* ip, char* puerto) {
     }
 
     // creo el socket
-    int socket_cliente = socket(server_info->ai_family,
-                                server_info->ai_socktype,
-                                server_info->ai_protocol);
+    int socket_cliente = socket(server_info->ai_family, server_info->ai_socktype, server_info->ai_protocol);
 
     // si hubo un error lo manejo
     if (socket_cliente == -1) {
@@ -92,9 +84,7 @@ int iniciar_servidor(char* puerto) {
     }
 
     // creo el socket
-    int socket_servidor = socket(servinfo->ai_family,
-                                 servinfo->ai_socktype,
-                                 servinfo->ai_protocol);
+    int socket_servidor = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
 
     // si hubo un error lo manejo
     if (socket_servidor == -1) {
@@ -108,9 +98,7 @@ int iniciar_servidor(char* puerto) {
     setsockopt(socket_servidor, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     // Asocia el socket al puerto especificado y si falla lo manejo
-    if (bind(socket_servidor,
-             servinfo->ai_addr,
-             servinfo->ai_addrlen) == -1) {
+    if (bind(socket_servidor, servinfo->ai_addr, servinfo->ai_addrlen) == -1) {
         perror("Error en bind. Cerrando socket y liberando recursos");
         close(socket_servidor);
         freeaddrinfo(servinfo);

@@ -1,31 +1,15 @@
 #include "procesos.h"
 #include "scheduler.h"
 #include "IO_manager.h"
-#include "utils/mensajes.h"
-#include "utils/constantes.h" //DEMASIADOS INCLUDES!!!!111!!!!1!!!
-#include <pthread.h>
-#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
-typedef struct {
-    char *nombre;
-    tipo_io tipo;
-    int socket_fd;
-    t_log *logger;
-
-    // Guardamos el request en vuelo (una IO atiende un proceso a la vez)
-    t_io_request req_en_vuelo; //esto qué es?
-    pthread_mutex_t mutex_req;
-} t_io_interfaz;
-
-// Lista de interfaces registradas
-static t_list *s_interfaces = NULL; //interfaces sería los i/o?
-static pthread_mutex_t s_mutex_interfaces = PTHREAD_MUTEX_INITIALIZER;
 
 // Socket hacia Kernel Memory (lo recibimos al registrar la primera interfaz)
 extern int socket_kernel_memory;
 
+// Lista de interfaces registradas
+static t_list *s_interfaces = NULL; //interfaces sería los i/o?
+static pthread_mutex_t s_mutex_interfaces = PTHREAD_MUTEX_INITIALIZER;
 
 static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) { //habría que usar la lista de i/o
     pthread_mutex_lock(&s_mutex_interfaces);
@@ -70,28 +54,44 @@ static void enviar_a_io(t_io_interfaz* io, t_io_request* req) {
 
 static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t size, t_log* logger) {
     enviar_opcode(socket_kernel_memory, KM_MEM_READ);
-    
-    enviar_uint32(socket_kernel_memory, pid);
-    enviar_uint32(socket_kernel_memory, dir_logica);
-    enviar_uint32(socket_kernel_memory, size);
 
-    char* buffer = malloc(size + 1);
-    memset(buffer, 0, size + 1);
-    recibir_mensaje(socket_kernel_memory, buffer, size + 1, logger);
-    return buffer;
+    op_code ack;
+    if (recibir_opcode(socket_kernel_memory, &ack) <= 0) {
+        log_error(logger, "Error al recibir ACK de KM en MEM_READ");
+        return calloc(size + 1, 1);
+    }
+
+    return calloc(size + 1, 1);  // buffer vacío por ahora
+    /*
+    enviar_uint32(socket_kernel_memory, pid);                       ]
+    enviar_uint32(socket_kernel_memory, dir_logica);                ]
+    enviar_uint32(socket_kernel_memory, size);                      ]
+                                                                    ]   //not in this checkpoint!
+    char* buffer = malloc(size + 1);                                ]
+    memset(buffer, 0, size + 1);                                    ]
+    recibir_mensaje(socket_kernel_memory, buffer, size + 1, logger);]
+    return buffer;                                                  ]
+    */
 }
 
 static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* datos, uint32_t size, t_log* logger) {
     enviar_opcode(socket_kernel_memory, KM_MEM_WRITE);
 
-    enviar_uint32(socket_kernel_memory, pid);
-    enviar_uint32(socket_kernel_memory, dir_logica);
-    enviar_uint32(socket_kernel_memory, size);
-
-    enviar_mensaje(socket_kernel_memory, datos, logger);
-
     op_code ack;
-    recibir_opcode(socket_kernel_memory, &ack);
+    if (recibir_opcode(socket_kernel_memory, &ack) <= 0) {
+        log_error(logger, "Error al recibir ACK de KM en MEM_WRITE");
+        break;
+    }
+    /*
+    enviar_uint32(socket_kernel_memory, pid);                       ]
+    enviar_uint32(socket_kernel_memory, dir_logica);                ]
+    enviar_uint32(socket_kernel_memory, size);                      ]
+                                                                    ]   //not in this checkpoint!
+    enviar_mensaje(socket_kernel_memory, datos, logger);            ]
+                                                                    ]
+    op_code ack;                                                    ]
+    recibir_opcode(socket_kernel_memory, &ack);                     ]
+    */
 }
 
 static void* hilo_io_listener(void* arg) {

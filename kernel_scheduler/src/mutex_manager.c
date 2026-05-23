@@ -1,10 +1,8 @@
-#include "mutex_manager.h"
-#include "scheduler.h"
 #include "procesos.h"
+#include "scheduler.h"
+#include "mutex_manager.h"
 #include "utils/conexion.h"
-#include <stdlib.h>
 #include <string.h>
-#include <commons/log.h>
 
 extern t_log* logger;
 

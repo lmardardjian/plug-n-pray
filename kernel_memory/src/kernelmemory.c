@@ -1,11 +1,8 @@
 #include "kernelmemory.h"
-
-#include <stdio.h>
-#include <stdint.h>
-#include <commons/collections/list.h>
-#include <string.h>
 #include "utils/conexion.h"
-#include "utils/mensajes.h"
+#include <commons/collections/list.h>
+#include <stdint.h>
+#include <stdio.h>
 
 void inicializar_contexto(t_contexto* contexto) {
     contexto->pc = 0;
@@ -100,7 +97,6 @@ void enviar_contexto(int cliente, t_dictionary* procesos, t_log* logger)
         enviar_opcode(cliente, RESPUESTA_ERROR);
         return;
     }
-
     /*
         MAS ADELANTE:
         - serializar t_contexto
@@ -123,13 +119,11 @@ void actualizar_contexto(int cliente, t_dictionary* procesos, t_log* logger)
         enviar_opcode(cliente, RESPUESTA_ERROR);
         return;
     }
-
     /*
         MAS ADELANTE:
         - deserializar contexto completo
         - actualizar segmentos
     */
-
     recibir_contexto_serializado(cliente, &(proceso->contexto));
 
     log_info(logger, "Contexto actualizado PID %d", pid);
@@ -179,7 +173,7 @@ void responder_espacio_libre(int cliente, t_log* logger)
         CHECKPOINT 2:
         Devuelve valor fijo mock.
     */
-    uint32_t espacio_libre = 999999;
+    uint32_t espacio_libre = 999999; //mmmmmmm magic number
     enviar_uint32(cliente, espacio_libre);
     log_info(logger, "Espacio libre enviado");
 }

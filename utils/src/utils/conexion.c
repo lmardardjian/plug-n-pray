@@ -1,7 +1,9 @@
-#include <utils/conexion.h>
-#include <utils/sockets.h>
-#include <stdint.h>
+#include "sockets.h"
+#include "<conexion.h"
+#include "mensajes.h"
+#include "commons/log.h"
 #include <sys/socket.h>
+#include <stdint.h>
 #include <string.h>
 
 int iniciar_servidor_modulo(t_log* logger, char* puerto, char* nombre_modulo) {
@@ -36,7 +38,7 @@ int conectar_a_modulo(t_log* logger, char* ip, char* puerto, char* nombre_modulo
     int conexion = crear_conexion(ip, puerto);
     if (conexion == -1) {
         log_error(logger, "FN_CONECT_CNX: No se pudo conectar a %s", nombre_modulo);
-        return -1; //-1 magic number?
+        return -1; 
     }
 
     log_info(logger, "FN_CONECT_CNX: Conectado correctamente a %s", nombre_modulo);
@@ -75,7 +77,9 @@ int recibir_string(int conexion, char* buffer, int max_size)
     uint32_t length;
     recibir_uint32(conexion, &length);
     
-    if(length > max_size) return -1;
+    if(length > max_size) 
+        return -1;
+
     return recv(conexion, buffer, length, MSG_WAITALL);
 }
 

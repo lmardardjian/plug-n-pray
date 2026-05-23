@@ -1,7 +1,7 @@
 #ifndef UTILS_CONEXION_H
 #define UTILS_CONEXION_H
 
-#include "./mensajes.h"
+#include "mensajes.h"
 #include <commons/log.h>
 
 int iniciar_servidor_modulo(t_log* logger, char* puerto, char* nombre_modulo);

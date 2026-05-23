@@ -1,11 +1,11 @@
 #ifndef KERNEL_MEMORY_H
 #define KERNEL_MEMORY_H
 
-#include <commons/log.h>
+#include "utils/mensajes.h"
 #include <commons/memory.h>
 #include <commons/config.h>
-#include "utils/mensajes.h"
-
+#include <commons/log.h>
+#include <string.h>
 typedef struct {
     int socket;
     t_log* logger;

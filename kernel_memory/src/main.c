@@ -1,15 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <commons/config.h>
-#include <commons/log.h>
-#include <commons/collections/dictionary.h>
+#include "kernelmemory.h"
+#include "utils/hilos.h"
 #include "utils/conexion.h"
 #include "utils/constantes.h"
-#include "utils/hilos.h"
+#include <commons/collections/dictionary.h>
 #include <sys/socket.h>
-#include <pthread.h>
-#include "kernelmemory.h"
 
 int main(int argc, char* argv[]) {
 

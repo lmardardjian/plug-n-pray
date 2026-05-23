@@ -1,11 +1,4 @@
 #include "io.h"
-
-#include <string.h>
-#include <strings.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-
 #include "utils/conexion.h"
 #include "utils/mensajes.h"
 #include "utils/constantes.h"

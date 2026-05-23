@@ -1,13 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <commons/config.h>
-#include <commons/log.h>
+#include "io.h"
 #include "utils/conexion.h"
 #include "utils/constantes.h"
-#include "io.h"
-#include <string.h>
+#include <commons/config.h>
 #include <sys/socket.h>
-#include <unistd.h>
 
 void cierre_io(t_log *logger, int conexion, t_config *config)
 {

@@ -1,26 +1,23 @@
 #include "procesos.h"
 #include "scheduler.h"
-#include "corto_plazo.h"
-#include "utils/hilos.h"
 #include "IO_manager.h"
-#include "utils/mensajes.h"
-#include "utils/conexion.h" //DEMASIADOS INCLUDES!!!!111!!1!
+#include "corto_plazo.h"
+#include "mutex_manager.h"
 #include <commons/config.h>
 #include <sys/socket.h>
 #include <string.h>
-#include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
-#include "mutex_manager.h"
 
 // -- Globales -----------------------------------------
 
 t_log* logger;
 t_config* config;
-int servidor;
-int socket_kernel_memory;
-uint32_t proximo_pid = 0;           // cambio de proceso con el planificador?
-bool blue_screen_of_death = false;  // hacemos que sea un bool quee modifica KM o un msj que envia el KM?
+uint32_t proximo_pid = 0;
 pthread_mutex_t mutex_pid;
+bool blue_screen_of_death = false;  // hacemos que sea un bool quee modifica KM o un msj que envia el KM?
+int socket_kernel_memory;
+int servidor;
 
 // -- Identificación de módulos conectados -------------
 
@@ -129,7 +126,7 @@ void* escuchar_conexiones(void* arg) {
             case MODULO_IO:
                 int tipo;
                 recibir_int(cliente, &tipo);
-                io_registrar_interfaz("io", (tipo_io)tipo, cliente, logger); //esto podría ser una función?
+                io_registrar_interfaz("io", (tipo_io)tipo, cliente, logger);
                 free(socket);
                 break;
             default:

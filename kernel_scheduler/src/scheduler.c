@@ -27,7 +27,7 @@ void inicializar_planificador() {
     sem_init(&sem_procesos_en_exec, 0, 0);
 }
 
-// ------------------- READY -------------------------
+// ------------------- READY --------------------
 
 void agregar_a_ready(t_pcb* proceso) {
     pthread_mutex_lock(&mutex_ready);   //Wait, cierra el candado

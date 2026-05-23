@@ -1,12 +1,10 @@
 #include "procesos.h"
 #include "scheduler.h"
+#include "IO_manager.h"
 #include "corto_plazo.h"
-#include "utils/hilos.h"
-#include "utils/mensajes.h"
-#include "utils/conexion.h"
 #include <commons/config.h>
-#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 extern t_log* logger;
 extern t_config* config;
@@ -161,6 +159,17 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
     enviar_uint32(socket_kernel_memory, pid_nuevo);
     enviar_string(socket_kernel_memory, path);
 
+    op_code ack;
+    if(recibir_opcode(socket_kernel_memory, &ack)<=0) {
+        log_error(logger, "Error al recibir ACK de Kernel Memory para PID %d", pid_nuevo);
+        break;
+    }
+
+    if (ack != RESPUESTA_OK) {
+    log_error(logger, "Kernel Memory rechazó la creación del proceso PID %d", pid_nuevo);
+        break;
+    }
+
     cambiar_estado(nuevo, ESTADO_READY, logger);
     agregar_a_ready(nuevo);
 }
@@ -207,7 +216,7 @@ static void* hilo_quantum(void* arg) {
     uint32_t quantum = args->quantum_ms;
     free(args);
 
-    usleep(quantum * 1000); //rara esta función, no me sale la definición. falta .h?
+    usleep(quantum * 1000);
 
     // Si llegamos acá, venció el quantum — mandamos interrupción a la CPU
     log_info(logger, "Quantum vencido, enviando interrupción a CPU %d", socket_cpu);
