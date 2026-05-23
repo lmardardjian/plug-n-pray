@@ -29,10 +29,6 @@ t_pcb* crear_pcb(uint32_t pid, uint32_t prioridad) {
 
 void destruir_pcb(void* ptr) {
     t_pcb* elem = (t_pcb*) ptr;
-    free(elem->pid);
-    free(elem->estado):
-    free(elem->prioridad);
-    free(elem->prioridad_original);
     free(ptr);
 }
 

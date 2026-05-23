@@ -74,7 +74,6 @@ void* hilo_dispatcher(void* arg) {
             pthread_t timer;
             pthread_create(&timer, NULL, hilo_quantum, args);
             pthread_detach(timer);
-            guardar_timer(cpu, timer);
 
             // Guardamos el timer para poder cancelarlo
             guardar_timer(cpu, timer);
@@ -117,7 +116,7 @@ void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso, op_code tipo_io) {
 
         default:
             // No es IO: MUTEX_*, MEM_ALLOC, MEM_FREE
-            log_info(logger, "## (%d) - Solicitó syscall: %u", proceso->pid, instruccion_to_string((tipo_instruccion)tipo_inst);
+            log_info(logger, "## (%d) - Solicitó syscall: %s", proceso->pid, instruccion_to_string((tipo_instruccion)tipo_inst));
             cancelar_timer(socket_cpu);
             quitar_de_exec(proceso->pid);
             agregar_cpu_libre(socket_cpu);
@@ -162,12 +161,12 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
     op_code ack;
     if(recibir_opcode(socket_kernel_memory, &ack)<=0) {
         log_error(logger, "Error al recibir ACK de Kernel Memory para PID %d", pid_nuevo);
-        break;
+        return;
     }
 
     if (ack != RESPUESTA_OK) {
-    log_error(logger, "Kernel Memory rechazó la creación del proceso PID %d", pid_nuevo);
-        break;
+        log_error(logger, "Kernel Memory rechazó la creación del proceso PID %d", pid_nuevo);
+        return;
     }
 
     cambiar_estado(nuevo, ESTADO_READY, logger);

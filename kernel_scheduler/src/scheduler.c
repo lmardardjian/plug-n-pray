@@ -9,8 +9,9 @@ pthread_mutex_t mutex_block;
 pthread_mutex_t mutex_exec;
 
 sem_t sem_procesos_en_ready;
-sem_t sem_procesos_en_block;
-sem_t sem_procesos_en_exec;
+// == Estos no se estan usando ==
+// sem_t sem_procesos_en_block;
+// sem_t sem_procesos_en_exec;
 
 void inicializar_planificador() {
     cola_ready = queue_create();

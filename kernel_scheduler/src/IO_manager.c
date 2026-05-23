@@ -80,7 +80,7 @@ static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* d
     op_code ack;
     if (recibir_opcode(socket_kernel_memory, &ack) <= 0) {
         log_error(logger, "Error al recibir ACK de KM en MEM_WRITE");
-        break;
+        return;
     }
     /*
     enviar_uint32(socket_kernel_memory, pid);                       ]

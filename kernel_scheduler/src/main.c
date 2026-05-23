@@ -13,7 +13,9 @@
 
 t_log* logger;
 t_config* config;
-uint32_t proximo_pid = 0;
+// ===== Esta no se estaba usando ======
+// uint32_t proximo_pid = 0;
+// =====================================
 pthread_mutex_t mutex_pid;
 bool blue_screen_of_death = false;  // hacemos que sea un bool quee modifica KM o un msj que envia el KM?
 int socket_kernel_memory;
@@ -46,12 +48,19 @@ void* atender_cpu(void* arg) {
         }
 
         switch (opcode) {
+            case KS_TICK_PROGRESS_CONTINUE:
+                // Aca hay que registrar de alguna manera que ejecuto una vez. Si es que usamos RR.
+                // y hay que devolverle 1 si puede seguir o 0 si es interrumpido para que guarde contexto y se libere
+                break;
+
             case KS_FIN_QUANTUM:
                 manejar_fin_quantum(socket_cpu, proceso);
                 break;
 
             case KS_SYSCALL_IO:
-                manejar_syscall_io(socket_cpu, proceso, opcode);
+                manejar_syscall_io_cpu(socket_cpu, proceso, opcode);
+                // antes estaba esta otra. Fijarse si hay que eliminarla de algun lado
+                // manejar_syscall_io(socket_cpu, proceso, opcode);
                 break;
             
             case KS_MUTEX_LOCK:
@@ -111,8 +120,10 @@ void* atender_cpu(void* arg) {
 void* escuchar_conexiones(void* arg) {
     while (1) {
         int cliente = esperar_cliente_modulo(logger, servidor, "Kernel Scheduler");
-        if (cliente == -1) 
-        continue; // no debería tirar error a través de un log? es continue o break?
+        if (cliente == -1) {
+            log_warning(logger, "No se pudo conectar de forma correcta al cliente. Salteando ciclo del bucle");
+            continue;
+        }
 
         int32_t id_modulo = handshake_servidor(cliente, logger); // y si el handshake falla?
 
@@ -178,7 +189,10 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    handshake_cliente(socket_kernel_memory, logger, MODULO_KERNEL_SCHEDULER); //falta si no sale bien el handshake
+    if (handshake_cliente(socket_kernel_memory, logger, MODULO_KERNEL_SCHEDULER) == -1) {
+        log_error(logger, "Handshake con Kernel Memory fallido");
+        return EXIT_FAILURE;
+    }
     log_info(logger, "## Conectado a Kernel Memory");
 
     // Iniciar servidor para CPUs e IOs
@@ -203,6 +217,11 @@ int main(int argc, char* argv[]) {
     enviar_uint32(socket_kernel_memory, 0);
     enviar_string(socket_kernel_memory, path_proceso_inicial);
 
+    // ==== ACA NO HACEMOS NADA CON EL OPCODE PERO HAY QUE RECIBIRLO PORQUE LO ENVIA EL KM
+    op_code opcode;
+    recibir_opcode(socket_kernel_memory, &opcode);
+    // ==== DESPUES REVISAR ====
+
     // Mandarlo a READY
     cambiar_estado(proceso_inicial, ESTADO_READY, logger);
     agregar_a_ready(proceso_inicial);
@@ -223,34 +242,5 @@ int main(int argc, char* argv[]) {
     config_destroy(config);
     log_destroy(logger);
 
-
-
-    //qué onda las funciones comentadas de acá abajo?
-
-
-
-    /*
-    int cliente = esperar_cliente_modulo(logger, servidor, "Kernel Scheduler");
-    if (cliente == -1) {
-        cerrar_conexion(servidor, logger);
-        config_destroy(config);
-        log_destroy(logger);
-        return EXIT_FAILURE;
-    }
-
-    int32_t resultado_handshake = handshake_servidor(cliente, logger);
-
-    if(resultado_handshake == -1) {
-        log_error(logger, "Handshake fallido");
-        return EXIT_FAILURE;
-    }
-    log_info(logger, "Handshake realizado correctamente");
-
-    char buffer[100];
-
-    recibir_mensaje(cliente, buffer, sizeof(buffer), logger);
-
-    return EXIT_SUCCESS;
-    */
     return EXIT_FAILURE; // BSOD, La única forma en la que un KS termina, porque algo sale mal. 
 }

@@ -140,7 +140,7 @@ void manejar_mutex_lock(int socket_cpu, t_pcb* proceso) {
             proceso->pid,
             nombre_mutex
         );
-
+        cancelar_timer(socket_cpu);
         agregar_cpu_libre(socket_cpu);
     }
 }
