@@ -2,6 +2,7 @@
 #include "scheduler.h"
 #include "corto_plazo.h"
 #include "utils/hilos.h"
+#include "utils/mensajes.h"
 #include "utils/conexion.h"
 #include <commons/config.h>
 #include <stdlib.h>
@@ -50,10 +51,11 @@ static int obtener_cpu_libre() {
 //-- DISPATCHER -----------------------------
 
 void* hilo_dispatcher(void* arg) {
+    uint32_t quantum = 0;
     char* algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
 
     if(strcmp(algoritmo, "RR")==0) {
-    uint32_t quantum = config_get_int_value(config, "RR_QUANTUM"); 
+        quantum = config_get_int_value(config, "RR_QUANTUM");
     }
 
     while (1) {
@@ -71,31 +73,62 @@ void* hilo_dispatcher(void* arg) {
             args->socket_cpu = cpu;
             args->quantum_ms = quantum;
 
-            crear_hilo(hilo_quantum, args);
+            pthread_t timer;
+            pthread_create(&timer, NULL, hilo_quantum, args);
+            pthread_detach(timer);
+            guardar_timer(cpu, timer);
 
             // Guardamos el timer para poder cancelarlo
             guardar_timer(cpu, timer);
         }
     }
-    return NULL; //return?
+    return NULL;
 }
 
 //-- MANEJADOR DE SYSCALLS -----------------------------
 
-void manejar_syscall_io(int socket_cpu, t_pcb* proceso, op_code tipo_io) {
+void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso, op_code tipo_io) {
+
+    uint32_t tipo_inst;
+    char param1[32] = {0};
+    char param2[32] = {0};
+    recibir_uint32(socket_cpu, &tipo_inst);
+    recibir_string(socket_cpu, param1, sizeof(param1));
+    recibir_string(socket_cpu, param2, sizeof(param2));
+
+    t_io_request req = {0};
+    req.pid = proceso->pid;
+
+    switch ((tipo_instruccion)tipo_inst) {
+        case INST_SLEEP:
+            req.tipo = TIPO_IO_SLEEP;
+            req.sleep_ms = (uint32_t)atoi(param1);
+            break;
+
+        case INST_STDIN:
+            req.tipo = TIPO_IO_STDIN;
+            req.dir_logica = (uint32_t)atoi(param1);
+            req.size = (uint32_t)atoi(param2);
+            break;
+
+        case INST_STDOUT:
+            req.tipo = TIPO_IO_STDOUT;
+            req.dir_logica = (uint32_t)atoi(param1);
+            req.size = (uint32_t)atoi(param2);
+            break;
+
+        default:
+            // No es IO: MUTEX_*, MEM_ALLOC, MEM_FREE
+            log_info(logger, "## (%d) - Solicitó syscall: %u", proceso->pid, instruccion_to_string((tipo_instruccion)tipo_inst);
+            cancelar_timer(socket_cpu);
+            quitar_de_exec(proceso->pid);
+            agregar_cpu_libre(socket_cpu);
+            return;
+    }
 
     cancelar_timer(socket_cpu);
-    quitar_de_exec(proceso->pid);
-    cambiar_estado(proceso, ESTADO_BLOCK, logger);
-    agregar_a_block(proceso);
-
+    manejar_syscall_io(proceso, &req, logger);
     agregar_cpu_libre(socket_cpu);
-
-    // Reenviamos la syscall al módulo IO correspondiente
-    // (el socket del IO lo tiene que proveer el contexto de conexiones)
-
-    log_info(logger, "## (%d) - Solicitó syscall: %s", proceso->pid, tipo_io == IO_EJECUTAR ? "IO" : "DESCONOCIDA");
-    //el if adentro del log info funca? mirá vo'
 }
 
 void manejar_exit(int socket_cpu, t_pcb* proceso) {

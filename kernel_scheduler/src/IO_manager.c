@@ -3,7 +3,6 @@
 #include "IO_manager.h"
 #include "utils/mensajes.h"
 #include "utils/constantes.h" //DEMASIADOS INCLUDES!!!!111!!!!1!!!
-#include <commons/collections/list.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,22 +98,11 @@ static void* hilo_io_listener(void* arg) {
     t_io_interfaz* io = (t_io_interfaz*) arg;
 
     while (1) {
-        op_code respuesta;
-        if (recibir_opcode(io->socket_fd, &respuesta) <= 0) {
-            log_error(io->logger, "IO %s (%s) desconectada", io->nombre, tipo_io_to_string(io->tipo));
-            break;
-        }
-
         pthread_mutex_lock(&io->mutex_req);
         t_io_request req_copia = io->req_en_vuelo;
         pthread_mutex_unlock(&io->mutex_req);
 
         uint32_t pid_finalizado = req_copia.pid;
-
-        if (respuesta == RESPUESTA_ERROR) {
-            log_error(io->logger, "IO %s reportó error para PID %d", io->nombre, pid_finalizado);
-            continue; //qué hacemos si da respuesta error en este lado?
-        }
 
         if (io->tipo == TIPO_IO_STDIN) {
             char buffer[BUFFER_SIZE];
@@ -125,7 +113,15 @@ static void* hilo_io_listener(void* arg) {
         }
 
         op_code respuesta;
-        recibir_opcode(io->socket_fd, &respuesta); //log?
+        if (recibir_opcode(io->socket_fd, &respuesta) <= 0) {
+            log_error(io->logger, "IO %s (%s) desconectada", io->nombre, tipo_io_to_string(io->tipo));
+            break;
+        }
+
+        if (respuesta == RESPUESTA_ERROR) {
+            log_error(io->logger, "IO %s reportó error para PID %d", io->nombre, pid_finalizado);
+            continue; //qué hacemos si da respuesta error en este lado?
+        }
 
         log_info(io->logger, "## (%d) finalizó IO y pasa a READY / SUSP. READY", pid_finalizado);
 
@@ -149,12 +145,9 @@ static void* hilo_io_listener(void* arg) {
     return NULL;
 }
 
-void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, int socket_km, t_log* logger) {
+void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_log* logger) {
     if (s_interfaces == NULL)
         s_interfaces = list_create();
-
-    if (socket_kernel_memory == -1)
-        socket_kernel_memory = socket_km;
 
     t_io_interfaz* io = malloc(sizeof(t_io_interfaz));
     io->nombre = strdup(nombre);
@@ -178,14 +171,13 @@ void manejar_syscall_io(t_pcb* proceso, t_io_request* req, t_log* logger) {
 
     log_info(logger, "## (%d) - Solicitó syscall: %s", proceso->pid, tipo_io_to_string(req->tipo));
 
-    quitar_de_running(proceso->pid);
+    quitar_de_exec(proceso->pid);
     cambiar_estado(proceso, ESTADO_BLOCK, logger);
     agregar_a_block(proceso);
 
     t_io_interfaz* io = buscar_interfaz_por_tipo(req->tipo);
     if (io == NULL) {
         log_error(logger, "## (%d) No hay interfaz %s conectada. Proceso queda en BLOCK.", proceso->pid, tipo_io_to_string(req->tipo));
-        sem_post(&sem_cpu_libre);
         return;
     }
 
@@ -198,6 +190,4 @@ void manejar_syscall_io(t_pcb* proceso, t_io_request* req, t_log* logger) {
     pthread_mutex_unlock(&io->mutex_req);
 
     enviar_a_io(io, req);
-
-    sem_post(&sem_cpu_libre);
 }

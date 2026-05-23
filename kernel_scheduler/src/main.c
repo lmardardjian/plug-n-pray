@@ -20,7 +20,7 @@ int servidor;
 int socket_kernel_memory;
 uint32_t proximo_pid = 0;           // cambio de proceso con el planificador?
 bool blue_screen_of_death = false;  // hacemos que sea un bool quee modifica KM o un msj que envia el KM?
-pthread_mutex_t mutex_pid;          // esto se usa en algún lado?
+pthread_mutex_t mutex_pid;
 
 // -- Identificación de módulos conectados -------------
 
@@ -80,7 +80,7 @@ void* atender_cpu(void* arg) {
     }
 }
 
-void* atender_io(void* arg) {
+/* void* atender_io(void* arg) {
     int socket_io = *(int*)arg;
     free(arg);
 
@@ -107,6 +107,7 @@ void* atender_io(void* arg) {
     }
     return NULL;
 }
+*/
 
 // -- Hilo servidor — acepta CPUs e IOs -------------------------
 
@@ -128,7 +129,7 @@ void* escuchar_conexiones(void* arg) {
             case MODULO_IO:
                 int tipo;
                 recibir_int(cliente, &tipo);
-                io_registrar_interfaz("io", (tipo_io)tipo, cliente, logger);
+                io_registrar_interfaz("io", (tipo_io)tipo, cliente, logger); //esto podría ser una función?
                 free(socket);
                 break;
             default:

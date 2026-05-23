@@ -229,3 +229,39 @@ char* tipo_io_to_string(int tipo)
             return "DESCONOCIDO";
     }
 }
+char* instruccion_to_string(tipo_instruccion tipo) {
+    switch(tipo) {
+        case INST_NOOP:
+            return "NOOP";
+        case INST_SET:
+            return "SET";
+        case INST_SUM:
+            return "SUM";
+        case INST_SUB:
+            return "SUB";
+        case INST_JNZ:
+            return "JNZ";
+        case INST_MUTEX_CREATE:
+            return "MUTEX_CREATE";
+        case INST_MUTEX_LOCK:
+            return "MUTEX_LOCK";
+        case INST_MUTEX_UNLOCK:
+            return "MUTEX_UNLOCK";
+        case INST_MEM_ALLOC:
+            return "MEM_ALLOC";
+        case INST_MEM_FREE:
+            return "MEM_FREE";
+        case INST_SLEEP:
+            return "SLEEP";
+        case INST_STDOUT:
+            return "STDOUT";
+        case INST_STDIN:
+            return "STDIN";
+        case INST_INIT_PROC:
+            return "INIT_PROC";
+        case INST_EXIT:
+            return "EXIT";
+        default:
+            return "DESCONOCIDA";
+    }
+}

@@ -16,7 +16,7 @@ typedef struct {
     void*     datos;
 } t_io_request;
 
-void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, int socket_km, t_log* logger);
+void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_log* logger);
 void manejar_syscall_io(t_pcb* proceso, t_io_request* req, t_log* logger);
 
 #endif
