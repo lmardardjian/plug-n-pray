@@ -86,8 +86,14 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
             break;
         }
         case INST_MUTEX_CREATE:
-        case INST_MUTEX_LOCK:
-        case INST_MUTEX_UNLOCK:
+        case INST_MUTEX_LOCK: {
+            enviar_syscall(fd_scheduler, inst, KS_MUTEX_LOCK);   //cambio relacionado a la revisión
+            break;
+        }
+        case INST_MUTEX_UNLOCK: {
+            enviar_syscall(fd_scheduler, inst, KS_MUTEX_UNLOCK); //cambio relacionado a la revisión
+            break;
+        }
         case INST_MEM_ALLOC:
         case INST_MEM_FREE:
         case INST_SLEEP:
@@ -97,7 +103,7 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
                 ctx->pc++;
             }
             actualizar_contexto(fd_memory, ctx);
-            enviar_syscall(fd_scheduler, inst, KS_SYSCALL_IO);
+            enviar_syscall(fd_scheduler, inst, KS_SYSCALL_IO);//revisar esto. Que no agrupe todo en ks_syscall_io
             return 1;
         }
         case INST_INIT_PROC: {

@@ -47,7 +47,7 @@ static void enviar_a_io(t_io_interfaz* io, t_io_request* req) {
 
     enviar_opcode(io->socket_fd, IO_EJECUTAR);
     enviar_uint32(io->socket_fd, req->pid);
-    enviar_mensaje(io->socket_fd, param, io->logger);
+    enviar_string(io->socket_fd, param);
 
     free(param);
 }

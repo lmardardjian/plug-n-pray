@@ -102,7 +102,7 @@ int main(int argc, char* argv[]) {
 
             // PARAMETROS
             log_info(logger, "Recibiendo parametros IO...");
-            if(recibir_mensaje(conexion, mensaje, BUFFER_SIZE, logger) <= 0)
+            if(recibir_string(conexion, mensaje, BUFFER_SIZE) <= 0)
             {
                 log_error(logger, "Error recibiendo parametros IO");
                 break;

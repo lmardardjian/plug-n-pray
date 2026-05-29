@@ -113,7 +113,12 @@ void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso, op_code tipo_io) {
             req.dir_logica = (uint32_t)atoi(param1);
             req.size = (uint32_t)atoi(param2);
             break;
-
+        case INST_MUTEX_CREATE:
+            crear_mutex(param1);                // param1 es el nombre del mutex
+                                                // La CPU no espera respuesta, sigue ejecutando
+            quitar_de_exec(proceso->pid);
+            agregar_cpu_libre(socket_cpu);      // para que el dispatcher le reenvíe el PID
+            break;
         default:
             // No es IO: MUTEX_*, MEM_ALLOC, MEM_FREE
             log_info(logger, "## (%d) - Solicitó syscall: %s", proceso->pid, instruccion_to_string((tipo_instruccion)tipo_inst));

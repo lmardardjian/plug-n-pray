@@ -126,22 +126,12 @@ void manejar_mutex_lock(int socket_cpu, t_pcb* proceso) {
     bool conseguido = mutex_lock(nombre_mutex, proceso);
 
     if(conseguido) {
-
-        log_info(logger,
-            "## (%d) obtuvo mutex %s",
-            proceso->pid,
-            nombre_mutex
-        );
+        log_info(logger, "## (%d) Toma el Mutex %s", proceso->pid, nombre_mutex);
     }
     else {
-
-        log_info(logger,
-            "## (%d) bloqueado esperando mutex %s",
-            proceso->pid,
-            nombre_mutex
-        );
-        cancelar_timer(socket_cpu);
+        log_info(logger, "## (%d) bloqueado esperando mutex %s", proceso->pid,nombre_mutex);
         agregar_cpu_libre(socket_cpu);
+        cancelar_timer(socket_cpu);
     }
 }
 
@@ -153,11 +143,15 @@ void manejar_mutex_unlock(int socket_cpu, t_pcb* proceso) {
 
     recibir_string(socket_cpu, nombre_mutex, sizeof(nombre_mutex));
 
+    cancelar_timer(socket_cpu);
+    quitar_de_exec(proceso->pid);
+
     mutex_unlock(nombre_mutex);
 
-    log_info(logger,
-        "## (%d) liberó mutex %s",
-        proceso->pid,
-        nombre_mutex
-    );
+    log_info(logger, "## (%d) Libera el Mutex %s", proceso->pid, nombre_mutex);
+
+    cambiar_estado(proceso, ESTADO_READY, logger);
+    agregar_a_ready(proceso);
+    agregar_cpu_libre(socket_cpu);
+
 }
