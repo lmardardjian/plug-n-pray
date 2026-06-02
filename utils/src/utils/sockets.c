@@ -1,4 +1,8 @@
 #include "sockets.h"
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
 // Esto anda. mati. Da errores de compilacion el vs porque no es un archivo compilable pero funciona bien y 
 // utiliza los metodos que expone el blog de ssoo en la parte de sockets en https://docs.utnso.com.ar/guias/linux/sockets

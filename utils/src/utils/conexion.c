@@ -1,7 +1,5 @@
 #include "sockets.h"
 #include "conexion.h"
-#include "mensajes.h"
-#include "commons/log.h"
 #include <sys/socket.h>
 #include <stdint.h>
 #include <string.h>
@@ -128,7 +126,7 @@ void enviar_tipo_io(int conexion, tipo_io tipo)
     send(conexion, &tipo, sizeof(tipo_io), 0);
 }
 
-tipo_io recibir_tipo_io(int conexion, tipo_io tipo)
+int recibir_tipo_io(int conexion, tipo_io* tipo)
 {
     return recv(conexion, tipo, sizeof(tipo_io), MSG_WAITALL);
 }

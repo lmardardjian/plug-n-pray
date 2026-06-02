@@ -2,11 +2,8 @@
 #define IO_MANAGER_H
 
 #include "pcb.h"
-#include "utils/hilos.h"
 #include "utils/conexion.h"
-#include "utils/mensajes.h"
 #include "utils/constantes.h"
-#include <commons/log.h>
 typedef struct {
     uint32_t  pid;
     tipo_io tipo;

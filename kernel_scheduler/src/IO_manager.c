@@ -1,8 +1,8 @@
 #include "procesos.h"
 #include "scheduler.h"
 #include "IO_manager.h"
+#include "utils/hilos.h"
 #include <string.h>
-#include <stdio.h>
 
 // Socket hacia Kernel Memory (lo recibimos al registrar la primera interfaz)
 extern pthread_mutex_t mutex_socket_km;
@@ -62,6 +62,9 @@ static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t s
     op_code ack;
     if (recibir_opcode(socket_kernel_memory, &ack) <= 0) {
         log_error(logger, "Error al recibir ACK de KM en MEM_READ");
+
+        pthread_mutex_unlock(&mutex_socket_km);
+
         return calloc(size + 1, 1);
     }
     /*
@@ -118,7 +121,7 @@ static void* hilo_io_listener(void* arg) {
         if (io->tipo == TIPO_IO_STDIN) {
             char buffer[BUFFER_SIZE];
             memset(buffer, 0, BUFFER_SIZE);
-            recibir_mensaje(io->socket_fd, buffer, BUFFER_SIZE, io->logger);
+            recibir_mensaje(io->socket_fd, buffer, BUFFER_SIZE, io->logger);//tendría que ser recibir_string
 
             escribir_en_kernel_memory(pid_finalizado, req_copia.dir_logica, buffer, req_copia.size, io->logger);
         }

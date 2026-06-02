@@ -14,7 +14,7 @@
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
-        printf("Uso: ./cpu [config] [identificador]\n");
+        printf("Uso: ./cpu [config] [identificador]\n"); //raro este string
         return EXIT_FAILURE;
     }
     t_config* config = config_create(argv[1]);
@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
     }
 
     // LOGGER
-    char nombre_log[64];
+    char nombre_log[64]; //mmmm magic number?
     snprintf(nombre_log, sizeof(nombre_log), "cpu_%s.log", argv[2]);
 
     t_log* logger = log_create(nombre_log, "CPU", true, LOG_LEVEL_INFO);

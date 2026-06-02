@@ -1,6 +1,5 @@
 #include "cpu.h"
 #include <string.h>
-#include <utils/mensajes.h>
 
 uint32_t leer_registro(t_contexto* ctx, char* nombre) {
     if (strcmp(nombre, "AX") == 0) return ctx->ax;

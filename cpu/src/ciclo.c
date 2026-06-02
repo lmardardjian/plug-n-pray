@@ -1,13 +1,11 @@
 #include "cpu.h"
-#include <stdio.h>
+#include "utils/conexion.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <commons/log.h>
-#include "utils/conexion.h"
-#include "utils/mensajes.h"
 
-int pid_actual = -1;
+
+int pid_actual = -1; 
 
 static char* fetch(int fd_memory, uint32_t pc, t_log* logger) {
 
@@ -85,14 +83,23 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
             }
             break;
         }
-        case INST_MUTEX_CREATE:
+        case INST_MUTEX_CREATE: {
+            ctx->pc++;
+            actualizar_contexto(fd_memory, ctx);
+            enviar_syscall(fd_scheduler, inst, KS_MUTEX_CREATE);
+            return 1;
+        }
         case INST_MUTEX_LOCK: {
-            enviar_syscall(fd_scheduler, inst, KS_MUTEX_LOCK);   //cambio relacionado a la revisión
-            break;
+            ctx->pc++;
+            actualizar_contexto(fd_memory, ctx);
+            enviar_syscall(fd_scheduler, inst, KS_MUTEX_LOCK);
+            return 1;
         }
         case INST_MUTEX_UNLOCK: {
-            enviar_syscall(fd_scheduler, inst, KS_MUTEX_UNLOCK); //cambio relacionado a la revisión
-            break;
+            ctx->pc++;
+            actualizar_contexto(fd_memory, ctx);
+            enviar_syscall(fd_scheduler, inst, KS_MUTEX_UNLOCK);
+            return 1;
         }
         case INST_MEM_ALLOC:
         case INST_MEM_FREE:
@@ -124,7 +131,7 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
         }
         default:
             log_error(logger, "Instrucción desconocida");
-            return 1;
+            return 1; //1 indica syscall, no debería ser un exit_error o algo por el estilo?
     }
     if(!pc_modificado) {
         ctx->pc++;
@@ -147,10 +154,7 @@ void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger) {
         );
 
         if(texto == NULL) {
-            log_error(
-                logger,
-                "Error en FETCH"
-            );
+            log_error(logger, "Error en FETCH");
             break;
         }
 

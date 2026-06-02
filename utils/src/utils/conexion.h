@@ -34,7 +34,7 @@ int handshake_cliente(int socket_conexion, t_log* logger, int32_t id_modulo);
 // metodos para comunicacion de codigos de operacion
 int enviar_opcode(int socket, op_code codigo);
 int recibir_opcode(int socket, op_code* codigo);
-char* tipo_io_to_string(int tipo);
+char* tipo_io_to_string(tipo_io tipo);
 char* instruccion_to_string(tipo_instruccion tipo);
 
 #endif

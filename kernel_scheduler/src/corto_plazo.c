@@ -87,7 +87,7 @@ void* hilo_dispatcher(void* arg) {
 
 //-- MANEJADOR DE SYSCALLS -----------------------------
 
-void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso, op_code tipo_io) {
+void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso) {
 
     uint32_t tipo_inst;
     char param1[32] = {0};
@@ -116,12 +116,7 @@ void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso, op_code tipo_io) {
             req.dir_logica = (uint32_t)atoi(param1);
             req.size = (uint32_t)atoi(param2);
             break;
-        case INST_MUTEX_CREATE:
-            crear_mutex(param1);                // param1 es el nombre del mutex
-                                                // La CPU no espera respuesta, sigue ejecutando
-            quitar_de_exec(proceso->pid);
-            agregar_cpu_libre(socket_cpu);      // para que el dispatcher le reenvíe el PID
-            break;
+
         default:
             // No es IO: MUTEX_*, MEM_ALLOC, MEM_FREE
             log_info(logger, "## (%d) - Solicitó syscall: %s", proceso->pid, instruccion_to_string((tipo_instruccion)tipo_inst));
@@ -134,6 +129,20 @@ void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso, op_code tipo_io) {
     cancelar_timer(socket_cpu);
     manejar_syscall_io(proceso, &req, logger);
     agregar_cpu_libre(socket_cpu);
+}
+
+void manejar_mutex_create(socket_cpu, proceso) { //duda de si esta función está bien así
+    uint32_t tipo_inst;
+    char param1[32] = {0};
+    char param2[32] = {0};
+    recibir_uint32(socket_cpu, &tipo_inst);
+    recibir_string(socket_cpu, param1, sizeof(param1));
+    recibir_string(socket_cpu, param2, sizeof(param2));
+
+    crear_mutex(param1);                // param1 es el nombre del mutex
+                                        // La CPU no espera respuesta, sigue ejecutando
+    quitar_de_exec(proceso->pid);
+    agregar_cpu_libre(socket_cpu);      // para que el dispatcher le reenvíe el PID
 }
 
 void manejar_exit(int socket_cpu, t_pcb* proceso) {
@@ -153,7 +162,7 @@ void manejar_exit(int socket_cpu, t_pcb* proceso) {
 void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
     uint32_t pid_nuevo;
     uint32_t prioridad;
-    char path[256];
+    char path[256]; //mmm magic number BUFFER_SIZE?
     recibir_uint32(socket_cpu, &pid_nuevo);
     recibir_uint32(socket_cpu, &prioridad);
     recibir_string(socket_cpu, path, sizeof(path));
@@ -177,6 +186,9 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
     op_code ack;
     if(recibir_opcode(socket_kernel_memory, &ack)<=0) {
         log_error(logger, "Error al recibir ACK de Kernel Memory para PID %d", pid_nuevo);
+
+        pthread_mutex_unlock(&mutex_socket_km);
+
         return;
     }
 
@@ -189,6 +201,12 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
 
     cambiar_estado(nuevo, ESTADO_READY, logger);
     agregar_a_ready(nuevo);
+}
+
+//Para RR la interrupción real vendría del timer vía KS_FIN_QUANTUM, no de este mecanismo. Este tick es para FIFO donde la CPU chequea si llegó una interrupción externa.
+void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {
+    uint32_t hay_interrupcion = 0;  //por ahora nunca hay interrupción
+    enviar_uint32(socket_cpu, hay_interrupcion);
 }
 
 void manejar_fin_quantum(int socket_cpu, t_pcb* proceso) {

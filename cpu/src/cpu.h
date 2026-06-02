@@ -3,7 +3,6 @@
 
 #include <commons/log.h>
 #include <utils/mensajes.h>  // donde está t_contexto y op_code
-#include <stdint.h>
 
 // PID actual que está ejecutando esta CPU
 // (global para poder usarlo en logs desde cualquier lado)

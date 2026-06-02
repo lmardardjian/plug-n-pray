@@ -5,7 +5,6 @@
 #include "mutex_manager.h"
 #include <commons/config.h>
 #include <sys/socket.h>
-#include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 
@@ -46,7 +45,6 @@ void* atender_cpu(void* arg) {
 
         uint32_t pid;
         recibir_uint32(socket_cpu, &pid);
-        //no va el mutex de p_activos_global porque ya lo llama la función encontrar_proceso
         t_pcb* proceso = encontrar_proceso(p_activos_global, pid);
 
         if (proceso == NULL) {
@@ -56,8 +54,7 @@ void* atender_cpu(void* arg) {
 
         switch (opcode) {
             case KS_TICK_PROGRESS_CONTINUE:
-                // Aca hay que registrar de alguna manera que ejecuto una vez. Si es que usamos RR.
-                // y hay que devolverle 1 si puede seguir o 0 si es interrumpido para que guarde contexto y se libere
+                manejar_tick_progress(int socket_cpu, t_pcb* proceso);
                 break;
 
             case KS_FIN_QUANTUM:
@@ -65,11 +62,15 @@ void* atender_cpu(void* arg) {
                 break;
 
             case KS_SYSCALL_IO:
-                manejar_syscall_io_cpu(socket_cpu, proceso, opcode);
+                manejar_syscall_io_cpu(socket_cpu, proceso);
                 // antes estaba esta otra. Fijarse si hay que eliminarla de algun lado
                 // manejar_syscall_io(socket_cpu, proceso, opcode);
                 break;
             
+            case KS_MUTEX_CREATE:
+                manejar_mutex_create(socket_cpu, proceso);
+                break;
+
             case KS_MUTEX_LOCK:
                 manejar_mutex_lock(socket_cpu, proceso);
                 break;
@@ -143,7 +144,9 @@ void* escuchar_conexiones(void* arg) {
                 break;
             case MODULO_IO:
                 tipo_io tipo;
-                recibir_tipo_io(cliente, &tipo);
+                if(recibir_tipo_io(cliente, &tipo)<=0)
+                log_error(logger, "Error recibiendo tipo IO");
+
                 io_registrar_interfaz("io", tipo, cliente, logger);
                 free(socket);
                 break;
@@ -228,6 +231,9 @@ int main(int argc, char* argv[]) {
     log_info(logger, "## (0) Se crea el proceso - Estado: NEW"); // raro este string
 
     // Avisar al Kernel Memory que cree el proceso
+
+    pthread_mutex_lock(&mutex_socket_km);
+
     enviar_opcode(socket_kernel_memory, KM_CREAR_PROCESO);
     enviar_uint32(socket_kernel_memory, 0);                     //mmm magic number PROCESO_INICIAL?
     enviar_string(socket_kernel_memory, path_proceso_inicial);
@@ -235,6 +241,8 @@ int main(int argc, char* argv[]) {
     op_code opcode;
     recibir_opcode(socket_kernel_memory, &opcode);
     // si no da RESPUESTA_OK qué debería pasar?
+
+    pthread_mutex_unlock(&mutex_socket_km);
 
     // Mandarlo a READY
     cambiar_estado(proceso_inicial, ESTADO_READY, logger);

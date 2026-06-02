@@ -1,7 +1,6 @@
 #include "kernelmemory.h"
 #include "utils/conexion.h"
 #include <commons/collections/list.h>
-#include <stdint.h>
 #include <stdio.h>
 
 void inicializar_contexto(t_contexto* contexto) {

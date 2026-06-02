@@ -7,6 +7,7 @@
 extern t_log* logger;
 
 t_list* lista_mutexes;
+static pthread_mutex_t mutex_lista_mutexes = PTHREAD_MUTEX_INITIALIZER;
 
 void inicializar_mutexes() {
     lista_mutexes = list_create();
@@ -24,7 +25,11 @@ t_mutex_kernel* crear_mutex(char* nombre) {
 
     pthread_mutex_init(&nuevo->mutex_interno, NULL);
 
+    pthread_mutex_lock(&mutex_lista_mutexes);
+
     list_add(lista_mutexes, nuevo);
+
+    pthread_mutex_unlock(&mutex_lista_mutexes);
 
     return nuevo;
 }
@@ -33,9 +38,13 @@ t_mutex_kernel* crear_mutex(char* nombre) {
 
 t_mutex_kernel* buscar_mutex(char* nombre) {
 
+    pthread_mutex_lock(&mutex_lista_mutexes);
+
     for(int i = 0; i < list_size(lista_mutexes); i++) {
 
         t_mutex_kernel* mutex = list_get(lista_mutexes, i);
+
+        pthread_mutex_unlock(&mutex_lista_mutexes);
 
         if(strcmp(mutex->nombre, nombre) == 0) {
             return mutex;
@@ -119,7 +128,7 @@ void mutex_unlock(char* nombre) {
 
 void manejar_mutex_lock(int socket_cpu, t_pcb* proceso) {
 
-    char nombre_mutex[64];
+    char nombre_mutex[64];  //mmmm magic number
 
     recibir_string(socket_cpu, nombre_mutex, sizeof(nombre_mutex));
 
@@ -130,8 +139,8 @@ void manejar_mutex_lock(int socket_cpu, t_pcb* proceso) {
     }
     else {
         log_info(logger, "## (%d) bloqueado esperando mutex %s", proceso->pid,nombre_mutex);
-        agregar_cpu_libre(socket_cpu);
         cancelar_timer(socket_cpu);
+        agregar_cpu_libre(socket_cpu);
     }
 }
 
@@ -139,7 +148,7 @@ void manejar_mutex_lock(int socket_cpu, t_pcb* proceso) {
 
 void manejar_mutex_unlock(int socket_cpu, t_pcb* proceso) {
 
-    char nombre_mutex[64];
+    char nombre_mutex[64]; //mmm magic number
 
     recibir_string(socket_cpu, nombre_mutex, sizeof(nombre_mutex));
 

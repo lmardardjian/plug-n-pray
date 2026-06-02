@@ -1,7 +1,5 @@
 #include "cpu.h"
-#include "utils/mensajes.h"
 #include <string.h>
-#include <stdio.h>
 #include <strings.h>
 
 t_instruccion decode(char* texto) {

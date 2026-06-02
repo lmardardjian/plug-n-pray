@@ -28,6 +28,7 @@ typedef enum {
     KS_SYSCALL_IO,
     KS_MUTEX_LOCK,
     KS_MUTEX_UNLOCK,
+    KS_MUTEX_CREATE,
     KS_EXIT,
     KS_INIT_PROC,
 
