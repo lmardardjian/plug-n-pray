@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
     t_log* logger = log_create("io.log", "IO", 1, LOG_LEVEL_INFO);
     log_info(logger, "INICIANDO MODULO IO");
     // obtengo tipo
-    int tipo = get_tipo_io(argv[2]);
+    tipo_io tipo = get_tipo_io(argv[2]);
     if (tipo == -1)
     {
         log_error(logger, "Tipo de IO invalido");
@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
 
     //Duda con esto de acá abajo
 
-    enviar_int(conexion, tipo);  // manda TIPO_IO_SLEEP/STDIN/STDOUT 
+    enviar_tipo_io(conexion, tipo);  // manda TIPO_IO_SLEEP/STDIN/STDOUT 
 
     // LOOP PRINCIPAL
     log_info(logger, "IO Entrando en loop principal de espera");

@@ -123,6 +123,16 @@ int recibir_int(int conexion, int* valor)
     return recv(conexion, valor, sizeof(int), MSG_WAITALL);
 }
 
+void enviar_tipo_io(int conexion, tipo_io tipo)
+{
+    send(conexion, &tipo, sizeof(tipo_io), 0);
+}
+
+tipo_io recibir_tipo_io(int conexion, tipo_io tipo)
+{
+    return recv(conexion, tipo, sizeof(tipo_io), MSG_WAITALL);
+}
+
 int handshake_cliente(int socket_conexion, t_log* logger, int32_t id_modulo)
 {
     int32_t handshake = 1;
@@ -216,7 +226,7 @@ int recibir_opcode(int socket, op_code* codigo)
     return recv(socket, codigo, sizeof(op_code), MSG_WAITALL);
 }
 
-char* tipo_io_to_string(int tipo)
+char* tipo_io_to_string(tipo_io tipo)
 {
     switch(tipo)
     {

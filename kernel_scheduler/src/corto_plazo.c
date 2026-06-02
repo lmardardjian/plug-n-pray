@@ -9,6 +9,9 @@
 extern t_log* logger;
 extern t_config* config;
 
+extern pthread_mutex_t mutex_socket_km;
+extern int socket_kernel_memory;
+
 //-- COLA DE CPUs LIBRES ----------------------
 
 static t_queue* cola_cpus_libres;
@@ -156,8 +159,16 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
     recibir_string(socket_cpu, path, sizeof(path));
 
     t_pcb* nuevo = crear_pcb(pid_nuevo, prioridad);
+
+    pthread_mutex_lock(&mutex_p_activos);
+
     list_add(p_activos_global, nuevo);
+
+    pthread_mutex_unlock(&mutex_p_activos);
+
     log_info(logger, "## (%d) Se crea el proceso - Estado: NEW", pid_nuevo);
+
+    pthread_mutex_lock(&mutex_socket_km);
 
     enviar_opcode(socket_kernel_memory, KM_CREAR_PROCESO);
     enviar_uint32(socket_kernel_memory, pid_nuevo);
@@ -168,6 +179,8 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
         log_error(logger, "Error al recibir ACK de Kernel Memory para PID %d", pid_nuevo);
         return;
     }
+
+    pthread_mutex_unlock(&mutex_socket_km);
 
     if (ack != RESPUESTA_OK) {
         log_error(logger, "Kernel Memory rechazó la creación del proceso PID %d", pid_nuevo);

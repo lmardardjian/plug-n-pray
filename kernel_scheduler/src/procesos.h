@@ -4,15 +4,17 @@
 #include "pcb.h"
 #include <commons/collections/list.h>
 #include <commons/log.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
 extern t_list* p_activos_global;
+extern pthread_mutex_t mutex_p_activos;
 
 t_pcb *crear_pcb (uint32_t pid, uint32_t prioridad);
+t_pcb* encontrar_proceso(t_list* procesos, uint32_t pid);
 void destruir_pcb(void* pcb);
 void destruir_todos(t_list* procesos);
-t_pcb* encontrar_proceso(t_list* procesos, uint32_t pid);
 void cambiar_estado(t_pcb *proceso, t_estado nuevo_estado, t_log* logger);
 
 #endif

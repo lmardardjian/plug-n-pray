@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 // Socket hacia Kernel Memory (lo recibimos al registrar la primera interfaz)
+extern pthread_mutex_t mutex_socket_km;
 extern int socket_kernel_memory;
 
 // Lista de interfaces registradas
@@ -53,6 +54,9 @@ static void enviar_a_io(t_io_interfaz* io, t_io_request* req) {
 }
 
 static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t size, t_log* logger) {
+
+    pthread_mutex_lock(&mutex_socket_km);
+
     enviar_opcode(socket_kernel_memory, KM_MEM_READ);
 
     op_code ack;
@@ -60,8 +64,6 @@ static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t s
         log_error(logger, "Error al recibir ACK de KM en MEM_READ");
         return calloc(size + 1, 1);
     }
-
-    return calloc(size + 1, 1);  // buffer vacío por ahora
     /*
     enviar_uint32(socket_kernel_memory, pid);                       ]
     enviar_uint32(socket_kernel_memory, dir_logica);                ]
@@ -72,9 +74,16 @@ static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t s
     recibir_mensaje(socket_kernel_memory, buffer, size + 1, logger);]
     return buffer;                                                  ]
     */
+
+    pthread_mutex_unlock(&mutex_socket_km);
+
+    return calloc(size + 1, 1);  // buffer vacío por ahora
 }
 
 static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* datos, uint32_t size, t_log* logger) {
+
+    pthread_mutex_lock(&mutex_socket_km);
+
     enviar_opcode(socket_kernel_memory, KM_MEM_WRITE);
 
     op_code ack;
@@ -92,6 +101,8 @@ static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* d
     op_code ack;                                                    ]
     recibir_opcode(socket_kernel_memory, &ack);                     ]
     */
+   pthread_mutex_unlock(&mutex_socket_km);
+
 }
 
 static void* hilo_io_listener(void* arg) {

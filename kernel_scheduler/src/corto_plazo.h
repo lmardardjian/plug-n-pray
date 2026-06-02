@@ -9,14 +9,14 @@
 
 // Para socket_cpu -> hilo timer activo
 typedef struct {
-    int      socket_cpu;
+    int socket_cpu;
     pthread_t hilo_timer;
-    bool     timer_activo;
+    bool timer_activo;
 } t_cpu_timer;
 
 // El timer
 typedef struct {
-    int      socket_cpu;
+    int socket_cpu;
     uint32_t quantum_ms;
 } t_args_timer;
 

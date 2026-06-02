@@ -24,15 +24,12 @@ t_list* leer_instrucciones(char* path)
     if(archivo == NULL) return NULL;
 
     t_list* instrucciones = list_create();
-    char linea[256];
+    char linea[256];                 //mmm magic number BUFFER_SIZE?
     while(fgets(linea, sizeof(linea), archivo))
     {
         linea[strcspn(linea, "\n")] = '\0';
 
-        list_add(
-            instrucciones,
-            strdup(linea)
-        );
+        list_add(instrucciones, strdup(linea));
     }
     fclose(archivo);
     return instrucciones;
@@ -41,7 +38,7 @@ t_list* leer_instrucciones(char* path)
 void crear_proceso(int cliente, t_dictionary* procesos, t_log* logger)
 {
     uint32_t pid;
-    char path[256];
+    char path[256];                 //mmm magic number BUFFER_SIZE?
 
     recibir_uint32(cliente, &pid);
     recibir_string(cliente, path, sizeof(path));
@@ -49,10 +46,11 @@ void crear_proceso(int cliente, t_dictionary* procesos, t_log* logger)
     t_proceso_memoria* proceso = malloc(sizeof(t_proceso_memoria));
 
     proceso->pid = pid;
-    inicializar_contexto(&proceso->contexto);
-    proceso->instrucciones = leer_instrucciones(path);
+    inicializar_contexto(&(proceso->contexto));   
+    proceso->instrucciones = leer_instrucciones(path); 
+    //se comprueba en algún otro lado que instrucciones no sea un puntero a null o habría que hacerlo acá?
 
-    char key[20];
+    char key[20];                   //mmm magic number KEY_SIZE?
     sprintf(key, "%d", pid);
     dictionary_put(procesos, key, proceso);
     log_info(logger, "## PID: %d - Proceso Creado", pid);

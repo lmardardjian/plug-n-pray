@@ -1,20 +1,5 @@
 #include "procesos.h"
 
-t_list* p_activos_global = NULL; // podríamos hacer uso de las funciones de listas?
-
-/*
-typedef struct {
-    uint32_t pid; //esta estructura está medio al pedo
-} t_busqueda;
-
-
-static bool mismo_pid(void* elemento, void* contexto) {
-    t_pcb* proceso = (t_pcb*) elemento;
-    t_busqueda* busqueda = (t_busqueda*) contexto;
-    return proceso->pid == busqueda->pid;
-}*/
-
-
 t_pcb* crear_pcb(uint32_t pid, uint32_t prioridad) {
     t_pcb* proceso = malloc(sizeof(t_pcb));
     if (proceso == NULL) return NULL;
@@ -27,21 +12,38 @@ t_pcb* crear_pcb(uint32_t pid, uint32_t prioridad) {
     return proceso;
 }
 
+t_pcb* encontrar_proceso(t_list* procesos, uint32_t pid) {
+
+    pthread_mutex_lock(&mutex_p_activos);
+
+    for (int i = 0; i < list_size(procesos); i++) {
+        t_pcb* proceso = list_get(procesos, i);
+        if (proceso->pid == pid) 
+        return proceso;
+    }
+
+    pthread_mutex_unlock(&mutex_p_activos);
+
+    return NULL;
+}
+
 void destruir_pcb(void* ptr) {
     t_pcb* elem = (t_pcb*) ptr;
     free(ptr);
 }
 
 void destruir_todos(t_list* procesos) {
+
+    pthread_mutex_lock(&mutex_p_activos);
+
     list_destroy_and_destroy_elements(procesos, destruir_pcb);
+
+    pthread_mutex_unlock(&mutex_p_activos);
 }
 
-t_pcb* encontrar_proceso(t_list* procesos, uint32_t pid) {
-    for (int i = 0; i < list_size(procesos); i++) {
-        t_pcb* proceso = list_get(procesos, i);
-        if (proceso->pid == pid) return proceso;
-    }
-    return NULL;
+void cambiar_estado(t_pcb *proceso, t_estado nuevo_estado, t_log* logger) {
+    log_info(logger, "## (%d) Pasa del estado %s al estado %s", proceso->pid, estado_to_string(proceso->estado), estado_to_string(nuevo_estado));
+    proceso -> estado = nuevo_estado;
 }
 
 static char* estado_to_string(t_estado estado) {
@@ -70,9 +72,4 @@ static char* estado_to_string(t_estado estado) {
         default:                
             return "DESCONOCIDO";
     }
-}
-
-void cambiar_estado(t_pcb *proceso, t_estado nuevo_estado, t_log* logger) {
-    log_info(logger, "## (%d) Pasa del estado %s al estado %s", proceso->pid, estado_to_string(proceso->estado), estado_to_string(nuevo_estado));
-    proceso -> estado = nuevo_estado;
 }

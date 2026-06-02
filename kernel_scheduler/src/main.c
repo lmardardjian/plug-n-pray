@@ -13,12 +13,18 @@
 
 t_log* logger;
 t_config* config;
-// ===== Esta no se estaba usando ======
+// ===== Estas no se estaban usando ======
 // uint32_t proximo_pid = 0;
-// =====================================
-pthread_mutex_t mutex_pid;
-bool blue_screen_of_death = false;  // hacemos que sea un bool quee modifica KM o un msj que envia el KM?
+//pthread_mutex_t mutex_pid;        
+
+bool blue_screen_of_death = false;  // hacemos que sea un bool que modifica KM o un msj que envia el KM?
+
 int socket_kernel_memory;
+pthread_mutex_t mutex_socket_km;
+
+t_list* p_activos_global;
+pthread_mutex_t mutex_p_activos;
+
 int servidor;
 
 // -- Identificación de módulos conectados -------------
@@ -40,6 +46,7 @@ void* atender_cpu(void* arg) {
 
         uint32_t pid;
         recibir_uint32(socket_cpu, &pid);
+        //no va el mutex de p_activos_global porque ya lo llama la función encontrar_proceso
         t_pcb* proceso = encontrar_proceso(p_activos_global, pid);
 
         if (proceso == NULL) {
@@ -125,7 +132,7 @@ void* escuchar_conexiones(void* arg) {
             continue;
         }
 
-        int32_t id_modulo = handshake_servidor(cliente, logger); // y si el handshake falla?
+        int32_t id_modulo = handshake_servidor(cliente, logger); //falta log si el handshake falla
 
         int* socket = malloc(sizeof(int));
         *socket = cliente;
@@ -135,9 +142,9 @@ void* escuchar_conexiones(void* arg) {
                 crear_hilo(atender_cpu, socket);
                 break;
             case MODULO_IO:
-                int tipo;
-                recibir_int(cliente, &tipo);
-                io_registrar_interfaz("io", (tipo_io)tipo, cliente, logger);
+                tipo_io tipo;
+                recibir_tipo_io(cliente, &tipo);
+                io_registrar_interfaz("io", tipo, cliente, logger);
                 free(socket);
                 break;
             default:
@@ -173,11 +180,13 @@ int main(int argc, char* argv[]) {
     logger = log_create("kernel_scheduler.log", "KERNEL", 1, log_level);
 
     // Inicializar las estructuras
-    pthread_mutex_init(&mutex_pid, NULL);
+    //pthread_mutex_init(&mutex_pid, NULL); este mutex no se está usando
+    pthread_mutex_init(&mutex_socket_km, NULL);
+    pthread_mutex_init(&mutex_p_activos, NULL);
     p_activos_global = list_create();     //todo esto podría ser una función
     inicializar_planificador();
     inicializar_mutexes();
-    inicializar_corto_plazo();
+    inicializar_corto_plazo();            //no se podría poner lo de esta función en inicializar_planificador?
 
     // Conectar con Kernel Memory
     char* ip_km = config_get_string_value(config, "IP_KERNEL_MEMORY");
@@ -209,18 +218,23 @@ int main(int argc, char* argv[]) {
     // Crear proceso inicial PID 0
     char* path_proceso_inicial = argv[2];
     t_pcb* proceso_inicial = crear_pcb(0, 0);
+
+    pthread_mutex_lock(&mutex_p_activos);
+
     list_add(p_activos_global, proceso_inicial);
-    log_info(logger, "## (0) Se crea el proceso - Estado: NEW"); // raro el string
+
+    pthread_mutex_unlock(&mutex_p_activos);
+
+    log_info(logger, "## (0) Se crea el proceso - Estado: NEW"); // raro este string
 
     // Avisar al Kernel Memory que cree el proceso
     enviar_opcode(socket_kernel_memory, KM_CREAR_PROCESO);
-    enviar_uint32(socket_kernel_memory, 0);
+    enviar_uint32(socket_kernel_memory, 0);                     //mmm magic number PROCESO_INICIAL?
     enviar_string(socket_kernel_memory, path_proceso_inicial);
 
-    // ==== ACA NO HACEMOS NADA CON EL OPCODE PERO HAY QUE RECIBIRLO PORQUE LO ENVIA EL KM
     op_code opcode;
     recibir_opcode(socket_kernel_memory, &opcode);
-    // ==== DESPUES REVISAR ====
+    // si no da RESPUESTA_OK qué debería pasar?
 
     // Mandarlo a READY
     cambiar_estado(proceso_inicial, ESTADO_READY, logger);
@@ -235,7 +249,6 @@ int main(int argc, char* argv[]) {
         }
         sleep(1);
     }
-
 
     cerrar_conexion(socket_kernel_memory, logger);
     cerrar_conexion(servidor, logger);

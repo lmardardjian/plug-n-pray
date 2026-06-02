@@ -3,7 +3,7 @@
 #include "utils/mensajes.h"
 #include "utils/constantes.h"
 
-int get_tipo_io(char* tipo) {
+tipo_io get_tipo_io(char* tipo) {
     if(strcasecmp(tipo, "SLEEP") == 0) {
 
         return TIPO_IO_SLEEP;
