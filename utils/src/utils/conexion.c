@@ -226,6 +226,16 @@ int recibir_opcode(int socket, op_code* codigo)
     return recv(socket, codigo, sizeof(op_code), MSG_WAITALL);
 }
 
+int enviar_buffer(int conexion, void* buffer, uint32_t tamanio)
+{
+    return send(conexion, buffer, tamanio, 0);
+}
+
+int recibir_buffer(int conexion, void* buffer, uint32_t tamanio)
+{
+    return recv(conexion, buffer, tamanio, MSG_WAITALL);
+}
+
 char* tipo_io_to_string(tipo_io tipo)
 {
     switch(tipo)

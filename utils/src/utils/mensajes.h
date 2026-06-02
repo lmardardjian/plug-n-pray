@@ -1,6 +1,8 @@
 #ifndef MENSAJES_H
 #define MENSAJES_H
 
+#include <commons/collections/list.h>
+
 typedef enum {
     MENSAJE,
 
@@ -27,7 +29,13 @@ typedef enum {
     KS_MUTEX_LOCK,
     KS_MUTEX_UNLOCK,
     KS_EXIT,
-    KS_INIT_PROC
+    KS_INIT_PROC,
+
+    //mensajes memory stick
+    //MS_RESERVAR,
+    //MS_LIBERAR,
+    MS_LEER,
+    MS_ESCRIBIR,
 } op_code;
 
 typedef enum {
@@ -45,13 +53,12 @@ typedef enum {
     TIPO_IO_STDOUT
 } tipo_io;
 
-/* PARA MAS ADELANTE EN EL TP
 typedef struct {
     uint32_t id_segmento;
     uint32_t base;
     uint32_t limite;
 } t_segmento;
-*/
+
 typedef struct {
     uint32_t pc;
 
@@ -68,8 +75,14 @@ typedef struct {
     uint32_t si;
     uint32_t di;
 
-    // t_list* tabla_segmentos; PARA MAS ADELANTE EN EL TP
+    t_list* tabla_segmentos;
 } t_contexto;
+
+// memory stick para kernel memory
+typedef struct {
+    int socket;
+    uint32_t tamanio;
+} t_memory_stick;
 
 // instrucciones que entiende la cpu
 typedef enum {

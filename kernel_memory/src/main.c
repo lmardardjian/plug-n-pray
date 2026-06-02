@@ -29,6 +29,7 @@ int main(int argc, char* argv[]) {
     }
 
 
+    t_list* memory_sticks = list_create();
     t_dictionary* procesos = dictionary_create();
     while(1)
     {
@@ -43,6 +44,7 @@ int main(int argc, char* argv[]) {
         args->socket = cliente;
         args->logger = logger;
         args->procesos = procesos;
+        args->memory_sticks = memory_sticks;
         crear_hilo(atender_cliente, args);
     }
 

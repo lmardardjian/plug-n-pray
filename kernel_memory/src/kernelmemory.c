@@ -16,6 +16,7 @@ void inicializar_contexto(t_contexto* contexto) {
     contexto->edx = 0;
     contexto->si = 0;
     contexto->di = 0;
+    contexto->tabla_segmentos = list_create();
 }
 
 t_list* leer_instrucciones(char* path)
@@ -185,8 +186,24 @@ void* atender_cliente(void* arg)
     int cliente = args->socket;
     t_log* logger = args->logger;
     t_dictionary* procesos = args->procesos;
+    t_list* memory_sticks = args->memory_sticks;
     // libero el struct porque ya tengo los datos que quiero
     free(args);
+
+    int32_t modulo = handshake_servidor(cliente, logger);
+    if(modulo == MODULO_MEMORY_STICK)
+    {
+        uint32_t tamanio;
+        recibir_uint32(cliente, &tamanio);
+
+        t_memory_stick* stick = malloc(sizeof(t_memory_stick));
+        stick->socket = cliente;
+        stick->tamanio = tamanio;
+
+        list_add(memory_sticks, stick);
+        log_info(logger, "Memory Stick registrado. Tamaño: %u", tamanio);
+        return NULL;
+    }
 
     while(1)
     {

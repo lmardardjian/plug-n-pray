@@ -11,6 +11,7 @@ typedef struct {
     t_log* logger;
     t_config* config;
     t_dictionary* procesos;
+    t_list* memory_sticks;
 } t_args_cliente;
 
 typedef struct {
