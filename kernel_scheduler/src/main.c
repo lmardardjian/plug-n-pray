@@ -13,7 +13,7 @@
 t_log* logger;
 t_config* config;
 
-uint32_t proximo_pid = 1;
+uint32_t proximo_pid = 1; // el 0 lo usa el proceso inicial, por eso inicia en 1
 pthread_mutex_t mutex_pid;        
 
 bool blue_screen_of_death = false;  // hacemos que sea un bool que modifica KM o un msj que envia el KM?

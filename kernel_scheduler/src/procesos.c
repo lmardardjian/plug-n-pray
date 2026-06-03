@@ -24,7 +24,6 @@ t_pcb* encontrar_proceso(t_list* procesos, uint32_t pid) {
         break;
         }
     }
-
     pthread_mutex_unlock(&mutex_p_activos);
 
     return resultado;

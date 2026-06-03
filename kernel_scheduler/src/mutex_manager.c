@@ -7,10 +7,10 @@
 extern t_log* logger;
 
 t_list* lista_mutexes;
-static pthread_mutex_t mutex_lista_mutexes = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutex_lista_mutexes;
 
 void inicializar_mutexes() {
-    lista_mutexes = list_create();
+    lista_mutexes = list_create(); //también podríamos inicializar el semáforo mutex acá?
 }
 
 //Crea Mutex
@@ -97,7 +97,7 @@ void mutex_unlock(char* nombre) {
     t_mutex_kernel* mutex = buscar_mutex(nombre);
 
     if(mutex == NULL) {
-        return;
+        return;//falta log error
     }
 
     pthread_mutex_lock(&mutex->mutex_interno);

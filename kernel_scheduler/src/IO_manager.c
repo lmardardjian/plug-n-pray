@@ -10,10 +10,12 @@ extern int socket_kernel_memory;
 
 // Lista de interfaces registradas
 static t_list *s_interfaces = NULL;
-static pthread_mutex_t s_mutex_interfaces = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t s_mutex_interfaces;
 
 static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) { //habría que usar la lista de i/o
+
     pthread_mutex_lock(&s_mutex_interfaces);
+
     t_io_interfaz* resultado = NULL;
     for (int i = 0; i < list_size(s_interfaces); i++) {
         t_io_interfaz* io = list_get(s_interfaces, i);
@@ -23,11 +25,13 @@ static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) { //habría que usa
         }
     }
     pthread_mutex_unlock(&s_mutex_interfaces);
+
     return resultado;
 }
 
 static char* armar_parametro(t_io_request* req) {
-    char* param = malloc(20);
+    char* param = malloc(20); //mmm magic number
+
     switch (req->tipo) {
         case TIPO_IO_SLEEP:
             snprintf(param, 20, "%u", req->sleep_ms);
@@ -36,7 +40,7 @@ static char* armar_parametro(t_io_request* req) {
             snprintf(param, 20, "%u", req->size);
             break;
         case TIPO_IO_STDOUT:
-            free(param);
+            free(param);//por qué solo se libera acá?
             param = strdup(req->datos != NULL ? (char*)req->datos : "");
             break;
     }
@@ -113,7 +117,9 @@ static void* hilo_io_listener(void* arg) {
 
     while (1) {
         pthread_mutex_lock(&io->mutex_req);
+
         t_io_request req_copia = io->req_en_vuelo;
+
         pthread_mutex_unlock(&io->mutex_req);
 
         uint32_t pid_finalizado = req_copia.pid;
@@ -134,7 +140,7 @@ static void* hilo_io_listener(void* arg) {
 
         if (respuesta == RESPUESTA_ERROR) {
             log_error(io->logger, "IO %s reportó error para PID %d", io->nombre, pid_finalizado);
-            continue; //qué hacemos si da respuesta error en este lado?
+            continue; //qué implica que dé respuesta error desde el otro lado?
         }
 
         log_info(io->logger, "## (%d) finalizó IO y pasa a READY / SUSP. READY", pid_finalizado);
@@ -170,7 +176,7 @@ void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_lo
     io->logger = logger;
     memset(&io->req_en_vuelo, 0, sizeof(t_io_request));
 
-    pthread_mutex_init(&io->mutex_req, NULL);
+    pthread_mutex_init(&io->mutex_req, NULL); //misma idea que arriba, esto no debería ir en un inicializador?
 
     pthread_mutex_lock(&s_mutex_interfaces);
 

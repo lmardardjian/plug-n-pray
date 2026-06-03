@@ -19,7 +19,9 @@ extern int socket_kernel_memory;
 
 static t_queue* cola_cpus_libres;
 static pthread_mutex_t mutex_cpus;
+
 static sem_t sem_cpus_libres;
+
 static t_list* lista_timers;
 static pthread_mutex_t mutex_timers;
 
@@ -33,18 +35,26 @@ void inicializar_corto_plazo() {
 }
 
 void agregar_cpu_libre(int socket_cpu) {
+
     pthread_mutex_lock(&mutex_cpus);
+
     int* socket = malloc(sizeof(int));
     *socket = socket_cpu;
     queue_push(cola_cpus_libres, socket);
+
     pthread_mutex_unlock(&mutex_cpus);
+
     sem_post(&sem_cpus_libres);
 }
 
 static int obtener_cpu_libre() {
+
     sem_wait(&sem_cpus_libres);
+
     pthread_mutex_lock(&mutex_cpus);
+
     int* socket = queue_pop(cola_cpus_libres);
+
     pthread_mutex_unlock(&mutex_cpus);
 
     int fd = *socket; //File Descriptor (fd) = socket_id
@@ -58,9 +68,8 @@ void* hilo_dispatcher(void* arg) {
     uint32_t quantum = 0;
     char* algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
 
-    if(strcmp(algoritmo, "RR")==0) {
+    if(strcmp(algoritmo, "RR")==0)
         quantum = config_get_int_value(config, "RR_QUANTUM");
-    }
 
     while (1) {
         
@@ -200,6 +209,7 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
     enviar_string(socket_kernel_memory, path);
 
     op_code ack;
+
     if(recibir_opcode(socket_kernel_memory, &ack)<=0) {
         log_error(logger, "Error al recibir ACK de Kernel Memory para PID %d", pid_nuevo);
 
@@ -226,7 +236,6 @@ void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {
 }
 
 void manejar_fin_quantum(int socket_cpu, t_pcb* proceso) {
-    
     cancelar_timer(socket_cpu);
     quitar_de_exec(proceso -> pid);
     cambiar_estado(proceso, ESTADO_READY, logger);
@@ -243,8 +252,8 @@ static void guardar_timer(int socket_cpu, pthread_t timer) {
     pthread_mutex_lock(&mutex_timers);
 
     t_cpu_timer* entry = malloc(sizeof(t_cpu_timer));
-    entry -> socket_cpu  = socket_cpu;
-    entry -> hilo_timer  = timer;
+    entry->socket_cpu = socket_cpu;
+    entry->hilo_timer = timer;
     list_add(lista_timers, entry);
 
     pthread_mutex_unlock(&mutex_timers);
@@ -268,7 +277,7 @@ static void cancelar_timer(int socket_cpu) {
 
 static void* hilo_quantum(void* arg) {
     t_args_timer* args = (t_args_timer*) arg;
-    int socket_cpu  = args->socket_cpu;
+    int socket_cpu = args->socket_cpu;
     uint32_t quantum = args->quantum_ms;
     free(args);
 
