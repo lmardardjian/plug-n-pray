@@ -9,7 +9,7 @@ extern pthread_mutex_t mutex_socket_km;
 extern int socket_kernel_memory;
 
 // Lista de interfaces registradas
-static t_list *s_interfaces = NULL; //interfaces sería los i/o?
+static t_list *s_interfaces = NULL;
 static pthread_mutex_t s_mutex_interfaces = PTHREAD_MUTEX_INITIALIZER;
 
 static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) { //habría que usar la lista de i/o
@@ -160,7 +160,7 @@ static void* hilo_io_listener(void* arg) {
 }
 
 void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_log* logger) {
-    if (s_interfaces == NULL)
+    if (s_interfaces == NULL)       //esto está bien acá? No debería ir en un inicializar io_manager?
         s_interfaces = list_create();
 
     t_io_interfaz* io = malloc(sizeof(t_io_interfaz));
@@ -171,9 +171,11 @@ void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_lo
     memset(&io->req_en_vuelo, 0, sizeof(t_io_request));
 
     pthread_mutex_init(&io->mutex_req, NULL);
+
     pthread_mutex_lock(&s_mutex_interfaces);
 
     list_add(s_interfaces, io);
+
     pthread_mutex_unlock(&s_mutex_interfaces);
 
     crear_hilo(hilo_io_listener, io);
@@ -195,12 +197,13 @@ void manejar_syscall_io(t_pcb* proceso, t_io_request* req, t_log* logger) {
         return;
     }
 
-    if (req->tipo == TIPO_IO_STDOUT) {
+    if (req->tipo == TIPO_IO_STDOUT) 
         req->datos = leer_de_kernel_memory(proceso->pid, req->dir_logica, req->size, logger);
-    }
 
     pthread_mutex_lock(&io->mutex_req);
+
     io->req_en_vuelo = *req;
+    
     pthread_mutex_unlock(&io->mutex_req);
 
     enviar_a_io(io, req);

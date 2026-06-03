@@ -110,15 +110,16 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
                 ctx->pc++;
             }
             actualizar_contexto(fd_memory, ctx);
-            enviar_syscall(fd_scheduler, inst, KS_SYSCALL_IO);//revisar esto. Que no agrupe todo en ks_syscall_io
+            enviar_syscall(fd_scheduler, inst, KS_SYSCALL_IO);
             return 1;
         }
         case INST_INIT_PROC: {
-            if(!pc_modificado) {
-                ctx->pc++;
-            }
+            ctx->pc++;
             actualizar_contexto(fd_memory, ctx);
-            enviar_syscall(fd_scheduler, inst, KS_INIT_PROC);
+            enviar_opcode(fd_scheduler, KS_INIT_PROC);
+            enviar_uint32(fd_scheduler, (uint32_t)pid_actual);
+            enviar_string(fd_scheduler, inst.param1);
+            enviar_uint32(fd_scheduler, (uint32_t)atoi(inst.param2));
             return 1;
         }
         case INST_EXIT: {

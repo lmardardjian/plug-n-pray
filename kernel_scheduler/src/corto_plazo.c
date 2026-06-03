@@ -9,6 +9,9 @@
 extern t_log* logger;
 extern t_config* config;
 
+extern pthread_mutex_t mutex_pid;
+extern uint32_t proximo_pid;
+
 extern pthread_mutex_t mutex_socket_km;
 extern int socket_kernel_memory;
 
@@ -131,21 +134,29 @@ void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso) {
     agregar_cpu_libre(socket_cpu);
 }
 
-void manejar_mutex_create(socket_cpu, proceso) { //duda de si esta función está bien así
+void manejar_mutex_create(int socket_cpu, t_pcb* proceso) {
+    uint32_t tipo_inst;
+    char nombre[32] = {0};
+    char param2[32] = {0};
+    recibir_uint32(socket_cpu, &tipo_inst);
+    recibir_string(socket_cpu, nombre, sizeof(nombre));
+    recibir_string(socket_cpu, param2, sizeof(param2));
+
+    cancelar_timer(socket_cpu);
+    crear_mutex(nombre); 
+    // La CPU no espera respuesta, sigue ejecutando
+    quitar_de_exec(proceso->pid);
+    agregar_cpu_libre(socket_cpu);      // para que el dispatcher le reenvíe el PID
+}
+
+void manejar_exit(int socket_cpu, t_pcb* proceso) {
+
     uint32_t tipo_inst;
     char param1[32] = {0};
     char param2[32] = {0};
     recibir_uint32(socket_cpu, &tipo_inst);
     recibir_string(socket_cpu, param1, sizeof(param1));
     recibir_string(socket_cpu, param2, sizeof(param2));
-
-    crear_mutex(param1);                // param1 es el nombre del mutex
-                                        // La CPU no espera respuesta, sigue ejecutando
-    quitar_de_exec(proceso->pid);
-    agregar_cpu_libre(socket_cpu);      // para que el dispatcher le reenvíe el PID
-}
-
-void manejar_exit(int socket_cpu, t_pcb* proceso) {
     
     cancelar_timer(socket_cpu);
     quitar_de_exec(proceso -> pid);
@@ -160,12 +171,17 @@ void manejar_exit(int socket_cpu, t_pcb* proceso) {
 }
 
 void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
-    uint32_t pid_nuevo;
+    char path[256] = {0}; //mmm magic number BUFFER_SIZE?
     uint32_t prioridad;
-    char path[256]; //mmm magic number BUFFER_SIZE?
-    recibir_uint32(socket_cpu, &pid_nuevo);
-    recibir_uint32(socket_cpu, &prioridad);
+
     recibir_string(socket_cpu, path, sizeof(path));
+    recibir_uint32(socket_cpu, &prioridad);
+
+    pthread_mutex_lock(&mutex_pid);
+
+    uint32_t pid_nuevo = proximo_pid++;
+
+    pthread_mutex_unlock(&mutex_pid);
 
     t_pcb* nuevo = crear_pcb(pid_nuevo, prioridad);
 
@@ -205,7 +221,7 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
 
 //Para RR la interrupción real vendría del timer vía KS_FIN_QUANTUM, no de este mecanismo. Este tick es para FIFO donde la CPU chequea si llegó una interrupción externa.
 void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {
-    uint32_t hay_interrupcion = 0;  //por ahora nunca hay interrupción
+    uint32_t hay_interrupcion = 0;  //por ahora nunca hay interrupción. Cambia en checkpoint 3
     enviar_uint32(socket_cpu, hay_interrupcion);
 }
 
@@ -223,16 +239,21 @@ void manejar_fin_quantum(int socket_cpu, t_pcb* proceso) {
 }
 
 static void guardar_timer(int socket_cpu, pthread_t timer) {
+
     pthread_mutex_lock(&mutex_timers);
+
     t_cpu_timer* entry = malloc(sizeof(t_cpu_timer));
     entry -> socket_cpu  = socket_cpu;
     entry -> hilo_timer  = timer;
     list_add(lista_timers, entry);
+
     pthread_mutex_unlock(&mutex_timers);
 }
 
 static void cancelar_timer(int socket_cpu) {
+
     pthread_mutex_lock(&mutex_timers);
+    
     for (int i = 0; i < list_size(lista_timers); i++) {
         t_cpu_timer* entry = list_get(lista_timers, i);
         if (entry->socket_cpu == socket_cpu) {

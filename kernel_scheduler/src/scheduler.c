@@ -9,9 +9,8 @@ pthread_mutex_t mutex_block;
 pthread_mutex_t mutex_exec;
 
 sem_t sem_procesos_en_ready;
-// == Estos no se estan usando ==
-// sem_t sem_procesos_en_block;
-// sem_t sem_procesos_en_exec;
+ sem_t sem_procesos_en_block;  //hay que usar este
+ sem_t sem_procesos_en_exec;  //y este también
 
 void inicializar_planificador() {
     cola_ready = queue_create();
@@ -32,15 +31,21 @@ void inicializar_planificador() {
 
 void agregar_a_ready(t_pcb* proceso) {
     pthread_mutex_lock(&mutex_ready);   //Wait, cierra el candado
+
     queue_push(cola_ready, proceso);    // Ingresamos el proceso a READY
+
     pthread_mutex_unlock(&mutex_ready); //Signal, abre el candado
+
     sem_post(&sem_procesos_en_ready);   //Avisa que hay un proceso
 }
 
 t_pcb* obtener_siguiente_proceso() {
     sem_wait(&sem_procesos_en_ready);       //Señal de que hay proceso
+
     pthread_mutex_lock(&mutex_ready);       //Wait, cierra el candado
+
     t_pcb* proceso = queue_pop(cola_ready); //Sacamos el proceso de READY
+
     pthread_mutex_unlock(&mutex_ready);     //SIgnal, abre el candado
     return proceso;
 }
@@ -48,14 +53,18 @@ t_pcb* obtener_siguiente_proceso() {
 // -------------- BLOCK -----------------------
 
 void agregar_a_block(t_pcb* proceso) { 
+
     pthread_mutex_lock(&mutex_block);
 
     queue_push(cola_block, proceso);
+
     pthread_mutex_unlock(&mutex_block);
-    sem_post(&sem_procesos_en_block);
+
+    sem_post(&sem_procesos_en_block); //semáforo para liberar el quitar procesos de la lista de bloqueados?
 }
 
-t_pcb* quitar_de_block(uint32_t pid) { //Revisar
+t_pcb* quitar_de_block(uint32_t pid) {
+
     pthread_mutex_lock(&mutex_block);
 
     t_pcb* encontrado = NULL;
@@ -70,19 +79,27 @@ t_pcb* quitar_de_block(uint32_t pid) { //Revisar
         }
     }
     pthread_mutex_unlock(&mutex_block);
+
+    sem_wait(&sem_procesos_en_block);
+
     return encontrado;
 }
 
 // ----------------- EXECUTE -----------------------
 
 void agregar_a_exec(t_pcb* proceso) {
+
     pthread_mutex_lock(&mutex_exec);
+
     list_add(lista_exec, proceso);
+
     pthread_mutex_unlock(&mutex_exec);
 }
 
 void quitar_de_exec(uint32_t pid) {
+
     pthread_mutex_lock(&mutex_exec);
+
      for (int i = 0; i < list_size(lista_exec); i++) {
         t_pcb* proceso = list_get(lista_exec, i);
         if (proceso->pid == pid) {

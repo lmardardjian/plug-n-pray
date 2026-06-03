@@ -130,7 +130,11 @@ void manejar_mutex_lock(int socket_cpu, t_pcb* proceso) {
 
     char nombre_mutex[64];  //mmmm magic number
 
+    uint32_t tipo_inst;
+    char param2[32] = {0};
+    recibir_uint32(socket_cpu, &tipo_inst);
     recibir_string(socket_cpu, nombre_mutex, sizeof(nombre_mutex));
+    recibir_string(socket_cpu, param2, sizeof(param2));
 
     bool conseguido = mutex_lock(nombre_mutex, proceso);
 
@@ -150,7 +154,11 @@ void manejar_mutex_unlock(int socket_cpu, t_pcb* proceso) {
 
     char nombre_mutex[64]; //mmm magic number
 
+    uint32_t tipo_inst;
+    char param2[32] = {0};
+    recibir_uint32(socket_cpu, &tipo_inst);
     recibir_string(socket_cpu, nombre_mutex, sizeof(nombre_mutex));
+    recibir_string(socket_cpu, param2, sizeof(param2));
 
     cancelar_timer(socket_cpu);
     quitar_de_exec(proceso->pid);

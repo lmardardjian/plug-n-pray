@@ -12,9 +12,9 @@
 
 t_log* logger;
 t_config* config;
-// ===== Estas no se estaban usando ======
-// uint32_t proximo_pid = 0;
-//pthread_mutex_t mutex_pid;        
+
+uint32_t proximo_pid = 1;
+pthread_mutex_t mutex_pid;        
 
 bool blue_screen_of_death = false;  // hacemos que sea un bool que modifica KM o un msj que envia el KM?
 
@@ -63,8 +63,6 @@ void* atender_cpu(void* arg) {
 
             case KS_SYSCALL_IO:
                 manejar_syscall_io_cpu(socket_cpu, proceso);
-                // antes estaba esta otra. Fijarse si hay que eliminarla de algun lado
-                // manejar_syscall_io(socket_cpu, proceso, opcode);
                 break;
             
             case KS_MUTEX_CREATE:
@@ -93,35 +91,6 @@ void* atender_cpu(void* arg) {
         }
     }
 }
-
-/* void* atender_io(void* arg) {
-    int socket_io = *(int*)arg;
-    free(arg);
-
-    while (1) {
-        op_code opcode;
-        if (recibir_opcode(socket_io, &opcode) <= 0) {
-            log_warning(logger, "IO desconectada");
-            break;
-        }
-
-        if (opcode == RESPUESTA_OK) {
-            uint32_t pid;
-            recibir_uint32(socket_io, &pid);
-
-            t_pcb* proceso = quitar_de_block(pid);
-            if (proceso == NULL) 
-                break; //falta un log acá
-
-            cambiar_estado(proceso, ESTADO_READY, logger);
-            agregar_a_ready(proceso);
-
-            log_info(logger, "## (%d) finalizó IO y pasa a READY", pid);
-        }
-    }
-    return NULL;
-}
-*/
 
 // -- Hilo servidor — acepta CPUs e IOs -------------------------
 
@@ -183,7 +152,7 @@ int main(int argc, char* argv[]) {
     logger = log_create("kernel_scheduler.log", "KERNEL", 1, log_level);
 
     // Inicializar las estructuras
-    //pthread_mutex_init(&mutex_pid, NULL); este mutex no se está usando
+    pthread_mutex_init(&mutex_pid, NULL);
     pthread_mutex_init(&mutex_socket_km, NULL);
     pthread_mutex_init(&mutex_p_activos, NULL);
     p_activos_global = list_create();     //todo esto podría ser una función
