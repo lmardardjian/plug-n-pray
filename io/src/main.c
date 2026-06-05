@@ -3,6 +3,7 @@
 #include "utils/constantes.h"
 #include <commons/config.h>
 #include <sys/socket.h>
+#include <stdint.h>
 
 void cierre_io(t_log *logger, int conexion, t_config *config)
 {

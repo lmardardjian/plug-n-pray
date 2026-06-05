@@ -5,6 +5,8 @@
 #include <commons/collections/dictionary.h>
 #include <sys/socket.h>
 
+t_log* logger;
+
 int main(int argc, char* argv[]) {
 
     if (argc < 2) {
@@ -20,7 +22,7 @@ int main(int argc, char* argv[]) {
 
     char* puerto = config_get_string_value(config, "PUERTO_ESCUCHA");
 
-    t_log* logger = log_create("kernel_memory.log", "MEMORY", 1, LOG_LEVEL_INFO);
+    logger = log_create("kernel_memory.log", "MEMORY", 1, LOG_LEVEL_INFO);
     int servidor = iniciar_servidor_modulo(logger, puerto, "Kernel Memory");
     if (servidor == -1) {
         config_destroy(config);
@@ -42,7 +44,6 @@ int main(int argc, char* argv[]) {
 
         t_args_cliente* args = malloc(sizeof(t_args_cliente));
         args->socket = cliente;
-        args->logger = logger;
         args->procesos = procesos;
         args->memory_sticks = memory_sticks;
         crear_hilo(atender_cliente, args);

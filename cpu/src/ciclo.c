@@ -13,15 +13,19 @@ static char* fetch(int fd_memory, uint32_t pc, t_log* logger) {
     enviar_uint32(fd_memory, (uint32_t) pid_actual);
     enviar_uint32(fd_memory, pc);
 
-    char* instruccion = malloc(256);
+    char* instruccion = malloc(256); //mmm magic number
     if(instruccion == NULL) {
         return NULL;
     }
 
-    if(recibir_string(fd_memory, instruccion, 256) <= 0) {
+    op_code respuesta;
+    if (recibir_opcode(fd_memory, &respuesta) <= 0 || respuesta == RESPUESTA_ERROR) {
+        log_error(logger, "Error en FETCH para PID %d PC %d", pid_actual, pc);
         free(instruccion);
         return NULL;
     }
+
+    recibir_string(fd_memory, instruccion, 256);
 
     log_info(logger, "## PID: %d - FETCH - Program Counter: %d", pid_actual, pc);
     return instruccion;
@@ -144,6 +148,13 @@ void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger) {
     t_contexto ctx;
     enviar_opcode(fd_memory, KM_PEDIR_CONTEXTO);
     enviar_uint32(fd_memory, (uint32_t) pid_actual);
+
+    op_code respuesta;
+    if (recibir_opcode(fd_memory, &respuesta) <= 0 || respuesta == RESPUESTA_ERROR) {
+        log_error(logger, "Error al obtener contexto para PID %d", pid_actual);
+        return;
+    }
+
     recibir_contexto_serializado(fd_memory, &ctx);
 
     int ejecutando = 1;

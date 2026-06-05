@@ -17,6 +17,7 @@ typedef enum {
     KM_MEM_READ,
     KM_MEM_WRITE,
     KM_ESPACIO_LIBRE,
+    KM_BSOD,
 
     //respuestas
     RESPUESTA_OK,

@@ -6,9 +6,10 @@
 #include <commons/config.h>
 #include <commons/log.h>
 #include <string.h>
+
+extern t_log* logger;
 typedef struct {
     int socket;
-    t_log* logger;
     t_config* config;
     t_dictionary* procesos;
     t_list* memory_sticks;

@@ -10,8 +10,8 @@ int conectar_a_modulo(t_log* logger, char* ip, char* puerto, char* nombre_modulo
 void cerrar_conexion(int socket, t_log* logger);
 
 // envios y recepciones de distintos mensajes
-void enviar_mensaje(int conexion, char* mensaje, t_log* logger);
-int recibir_mensaje(int conexion, char* buffer, int size, t_log* logger);
+void enviar_mensaje(int conexion, char* mensaje, t_log* logger); //DEPRECADO! JASJAJSJ
+int recibir_mensaje(int conexion, char* buffer, int size, t_log* logger); //DEPRECADO! JASJAJSJ 
 void enviar_int(int conexion, int valor);
 int recibir_int(int conexion, int* valor);
 void enviar_uint32(int conexion, uint32_t valor);

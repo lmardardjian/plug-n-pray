@@ -10,7 +10,8 @@ t_list* lista_mutexes;
 static pthread_mutex_t mutex_lista_mutexes;
 
 void inicializar_mutexes() {
-    lista_mutexes = list_create(); //también podríamos inicializar el semáforo mutex acá?
+    lista_mutexes = list_create();
+    pthread_mutex_init(&mutex_lista_mutexes, NULL);
 }
 
 //Crea Mutex
@@ -40,18 +41,17 @@ t_mutex_kernel* buscar_mutex(char* nombre) {
 
     pthread_mutex_lock(&mutex_lista_mutexes);
 
+    t_mutex_kernel* resultado = NULL;
     for(int i = 0; i < list_size(lista_mutexes); i++) {
-
         t_mutex_kernel* mutex = list_get(lista_mutexes, i);
-
-        pthread_mutex_unlock(&mutex_lista_mutexes);
-
         if(strcmp(mutex->nombre, nombre) == 0) {
-            return mutex;
+            resultado = mutex;
+            break;
         }
     }
-
-    return NULL;
+    pthread_mutex_unlock(&mutex_lista_mutexes);
+    
+    return resultado;
 }
 
 //Lock

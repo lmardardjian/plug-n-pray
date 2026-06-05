@@ -1,5 +1,7 @@
 #include "procesos.h"
 
+extern t_list* p_activos_global;
+
 t_pcb* crear_pcb(uint32_t pid, uint32_t prioridad) {
     t_pcb* proceso = malloc(sizeof(t_pcb));
     if (proceso == NULL) return NULL; //falta logger?
@@ -12,13 +14,13 @@ t_pcb* crear_pcb(uint32_t pid, uint32_t prioridad) {
     return proceso;
 }
 
-t_pcb* encontrar_proceso(t_list* procesos, uint32_t pid) {
+t_pcb* encontrar_proceso_global(uint32_t pid) {
+    t_pcb* resultado = NULL;
 
     pthread_mutex_lock(&mutex_p_activos);
 
-    t_pcb* resultado = NULL;
-    for (int i = 0; i < list_size(procesos); i++) {
-        t_pcb* proceso = list_get(procesos, i);
+    for (int i = 0; i < list_size(p_activos_global); i++) {
+        t_pcb* proceso = list_get(p_activos_global, i);
         if (proceso->pid == pid) {
         resultado = proceso;
         break;
@@ -34,11 +36,11 @@ void destruir_pcb(void* ptr) {
     free(ptr);
 }
 
-void destruir_todos(t_list* procesos) {//podría usar directamente la lista de procesos global y no recibir parámetro? para evitar confusiones
+void destruir_todos_global() {
 
     pthread_mutex_lock(&mutex_p_activos);
 
-    list_destroy_and_destroy_elements(procesos, destruir_pcb); 
+    list_destroy_and_destroy_elements(p_activos_global, destruir_pcb); 
 
     pthread_mutex_unlock(&mutex_p_activos);
 }

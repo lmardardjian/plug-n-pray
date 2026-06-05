@@ -25,6 +25,9 @@ static sem_t sem_cpus_libres;
 static t_list* lista_timers;
 static pthread_mutex_t mutex_timers;
 
+static t_list* cpus_con_interrupcion;
+static pthread_mutex_t mutex_interrupciones;
+
 void inicializar_corto_plazo() {
     cola_cpus_libres = queue_create();
     pthread_mutex_init(&mutex_cpus, NULL);
@@ -32,6 +35,9 @@ void inicializar_corto_plazo() {
 
     lista_timers = list_create();
     pthread_mutex_init(&mutex_timers, NULL);
+
+    cpus_con_interrupcion = list_create();
+    pthread_mutex_init(&mutex_interrupciones, NULL);
 }
 
 void agregar_cpu_libre(int socket_cpu) {
@@ -229,10 +235,25 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
     agregar_a_ready(nuevo);
 }
 
-//Para RR la interrupción real vendría del timer vía KS_FIN_QUANTUM, no de este mecanismo. Este tick es para FIFO donde la CPU chequea si llegó una interrupción externa.
 void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {
-    uint32_t hay_interrupcion = 0;  //por ahora nunca hay interrupción. Cambia en checkpoint 3
-    enviar_uint32(socket_cpu, hay_interrupcion);
+
+    if (consumir_interrupcion(socket_cpu)) {
+        // Hay interrupción — avisarle a la CPU que pare
+        enviar_uint32(socket_cpu, 1);
+
+        // El Scheduler maneja el desalojo directamente
+        // sin esperar otro opcode de la CPU
+        cancelar_timer(socket_cpu);
+        quitar_de_exec(proceso->pid);
+        cambiar_estado(proceso, ESTADO_READY, logger);
+        agregar_a_ready(proceso);
+        log_info(logger, "## (%d) - Desalojado por fin de quantum", proceso->pid);
+        agregar_cpu_libre(socket_cpu);
+
+    } else {
+        // No hay interrupción — la CPU sigue
+        enviar_uint32(socket_cpu, 0);
+    }
 }
 
 void manejar_fin_quantum(int socket_cpu, t_pcb* proceso) {
@@ -285,7 +306,39 @@ static void* hilo_quantum(void* arg) {
 
     // Si llegamos acá, venció el quantum — mandamos interrupción a la CPU
     log_info(logger, "Quantum vencido, enviando interrupción a CPU %d", socket_cpu);
-    enviar_opcode(socket_cpu, KS_FIN_QUANTUM);
+    marcar_interrupcion(socket_cpu);
 
     return NULL;
+}
+
+static void marcar_interrupcion(int socket_cpu) {
+
+    pthread_mutex_lock(&mutex_interrupciones);
+
+    int* s = malloc(sizeof(int));
+    *s = socket_cpu;
+    list_add(cpus_con_interrupcion, s);
+
+    pthread_mutex_unlock(&mutex_interrupciones);
+}
+
+static bool consumir_interrupcion(int socket_cpu) {
+
+    pthread_mutex_lock(&mutex_interrupciones);
+
+    for (int i = 0; i < list_size(cpus_con_interrupcion); i++) {
+        int* s = list_get(cpus_con_interrupcion, i);
+        if (*s == socket_cpu) {
+            list_remove(cpus_con_interrupcion, i);
+            free(s);
+
+            pthread_mutex_unlock(&mutex_interrupciones);
+
+            return true;
+        }
+    }
+
+    pthread_mutex_unlock(&mutex_interrupciones);
+
+    return false;
 }

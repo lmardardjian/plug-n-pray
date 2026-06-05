@@ -45,7 +45,8 @@ void* atender_cpu(void* arg) {
 
         uint32_t pid;
         recibir_uint32(socket_cpu, &pid);
-        t_pcb* proceso = encontrar_proceso(p_activos_global, pid);
+
+        t_pcb* proceso = encontrar_proceso_global(pid);
 
         if (proceso == NULL) {
             log_error(logger, "Proceso %d no encontrado", pid);
@@ -54,7 +55,7 @@ void* atender_cpu(void* arg) {
 
         switch (opcode) {
             case KS_TICK_PROGRESS_CONTINUE:
-                manejar_tick_progress(int socket_cpu, t_pcb* proceso);
+                manejar_tick_progress(socket_cpu, proceso);
                 break;
 
             case KS_FIN_QUANTUM:
@@ -113,8 +114,11 @@ void* escuchar_conexiones(void* arg) {
                 break;
             case MODULO_IO:
                 tipo_io tipo;
-                if(recibir_tipo_io(cliente, &tipo)<=0)
+                if(recibir_tipo_io(cliente, &tipo)<=0) {
                 log_error(logger, "Error recibiendo tipo IO");
+                free(socket);
+                break;
+                }
 
                 io_registrar_interfaz("io", tipo, cliente, logger);
                 free(socket);
@@ -122,6 +126,28 @@ void* escuchar_conexiones(void* arg) {
             default:
                 log_warning(logger, "Módulo desconocido: %d", id_modulo);
                 free(socket);
+                break;
+        }
+    }
+    return NULL;
+}
+
+void* escuchar_kernel_memory(void* arg) {
+    while (1) {
+        op_code opcode;
+        if (recibir_opcode(socket_kernel_memory, &opcode) <= 0) {
+            log_error(logger, "Kernel Memory desconectado");
+            blue_screen_of_death = true;
+            break;
+        }
+
+        switch (opcode) {
+            case KM_BSOD:
+                log_error(logger, "## Kernel Memory reportó corrupción de memoria");
+                blue_screen_of_death = true;
+                break;
+            default:
+                log_warning(logger, "Opcode inesperado de KM: %d", opcode);
                 break;
         }
     }
@@ -176,6 +202,18 @@ int main(int argc, char* argv[]) {
     }
     log_info(logger, "## Conectado a Kernel Memory");
 
+    int socket_km_notificaciones = conectar_a_modulo(logger, ip_km, puerto_km, "Kernel Memory notificaciones");
+    if (socket_km_notificaciones == -1) {
+        log_error(logger, "No se pudo conectar al Notificador del Kernel Memory");
+        return EXIT_FAILURE;
+    }
+
+    if (handshake_cliente(socket_km_notificaciones, logger, MODULO_KERNEL_SCHEDULER) == -1) {
+        log_error(logger, "Handshake con Notificador del Kernel Memory fallido");
+        return EXIT_FAILURE;
+    }
+    log_info(logger, "## Conectado al Notificador del Kernel Memory");
+
     // Iniciar servidor para CPUs e IOs
     char* puerto = config_get_string_value(config, "PUERTO_ESCUCHA");
     servidor = iniciar_servidor_modulo(logger, puerto, "Kernel Scheduler");
@@ -183,9 +221,10 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE; //falta log de error
     }
 
-    // Arrancar hilo dispatcher e hilo servidor
+    // Arrancar hilo dispatcher, hilo servidor e hilo notificador
     crear_hilo(hilo_dispatcher, NULL);
     crear_hilo(escuchar_conexiones, NULL);
+    crear_hilo(escuchar_kernel_memory, NULL);
 
     // Crear proceso inicial PID 0
     char* path_proceso_inicial = argv[2];
@@ -208,8 +247,10 @@ int main(int argc, char* argv[]) {
     enviar_string(socket_kernel_memory, path_proceso_inicial);
 
     op_code opcode;
-    recibir_opcode(socket_kernel_memory, &opcode);
-    // si no da RESPUESTA_OK qué debería pasar?
+    if (recibir_opcode(socket_kernel_memory, &opcode)<=0 || opcode != RESPUESTA_OK) {
+        log_error(logger, "Fallo al crear el proceso inicial");
+        return EXIT_FAILURE;
+    }
 
     pthread_mutex_unlock(&mutex_socket_km);
 
@@ -221,7 +262,7 @@ int main(int argc, char* argv[]) {
     while (1) {
         if (blue_screen_of_death) {
             log_error(logger, "## BLUE SCREEN OF DEATH");
-            destruir_todos(p_activos_global);
+            destruir_todos_global();
             break;
         }
         sleep(1);

@@ -10,7 +10,7 @@
 
 // Colas y listas
 extern t_queue *cola_ready;
-extern t_queue *cola_block;
+extern t_queue *lista_block;
 extern t_list *lista_exec;
 
 //Mutex 
@@ -18,11 +18,7 @@ extern pthread_mutex_t mutex_ready;
 extern pthread_mutex_t mutex_block;
 extern pthread_mutex_t mutex_exec;
 
-//Semaforos de bloqueo cuando no hay procesos
 extern sem_t sem_procesos_en_ready;
-extern sem_t sem_procesos_en_block;
-extern sem_t sem_procesos_en_exec;
-
 
 void inicializar_planificador();
 

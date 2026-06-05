@@ -54,6 +54,6 @@ void ejecutar_stdin(int pid, int conexion, char* mensaje, t_log* logger)
     memset(resultado, '\0', cantidad + 1);
     strncpy(resultado, input, cantidad);
     
-    enviar_mensaje(conexion, resultado, logger);
+    enviar_string(conexion, resultado);
     log_info(logger, "Input enviado al Kernel para PID %d", pid);
 }

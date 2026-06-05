@@ -19,6 +19,7 @@ typedef struct {
     t_estado estado;    // Estado actual 
     uint32_t prioridad;
     uint32_t prioridad_original;
+    long tiempo_susp;   // "Long" porque el tiempo está en milisegundos
 } t_pcb;
 
 #endif

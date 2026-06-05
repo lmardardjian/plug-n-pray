@@ -1,7 +1,12 @@
 #include "kernelmemory.h"
 #include "utils/conexion.h"
 #include <commons/collections/list.h>
+#include <stdint.h>
 #include <stdio.h>
+
+static int socket_ks_notificaciones = -1;
+static int socket_kernel_scheduler = -1;
+static int socket_ks_operaciones = -1;
 
 void inicializar_contexto(t_contexto* contexto) {
     contexto->pc = 0;
@@ -77,6 +82,7 @@ void enviar_instruccion(int cliente, t_dictionary* procesos, t_log* logger)
         return;
     }
 
+    enviar_opcode(cliente, RESPUESTA_OK);
     enviar_string(cliente, instruccion);
 
     log_info(logger, "## PID: %d - Obtener instruccion: %d - Instruccion: %s", pid, pc, instruccion);
@@ -95,6 +101,7 @@ void enviar_contexto(int cliente, t_dictionary* procesos, t_log* logger)
         enviar_opcode(cliente, RESPUESTA_ERROR);
         return;
     }
+    enviar_opcode(cliente, RESPUESTA_OK);
     /*
         MAS ADELANTE:
         - serializar t_contexto
@@ -171,7 +178,7 @@ void responder_espacio_libre(int cliente, t_log* logger)
         CHECKPOINT 2:
         Devuelve valor fijo mock.
     */
-    uint32_t espacio_libre = 999999; //mmmmmmm magic number
+    uint32_t espacio_libre = 999999; //mmm magic number
     enviar_uint32(cliente, espacio_libre);
     log_info(logger, "Espacio libre enviado");
 }
@@ -181,15 +188,13 @@ void responder_espacio_libre(int cliente, t_log* logger)
 void* atender_cliente(void* arg)
 {
     t_args_cliente* args = (t_args_cliente*) arg;
-
     int cliente = args->socket;
-    t_log* logger = args->logger;
     t_dictionary* procesos = args->procesos;
     t_list* memory_sticks = args->memory_sticks;
-    // libero el struct porque ya tengo los datos que quiero
     free(args);
 
     int32_t modulo = handshake_servidor(cliente, logger);
+
     if(modulo == MODULO_MEMORY_STICK)
     {
         uint32_t tamanio;
@@ -201,14 +206,28 @@ void* atender_cliente(void* arg)
 
         list_add(memory_sticks, stick);
         log_info(logger, "Memory Stick registrado. Tamaño: %u", tamanio);
+        
         return NULL;
     }
+
+    if (modulo == MODULO_KERNEL_SCHEDULER) {
+    if (socket_ks_operaciones == -1) {
+        socket_ks_operaciones = cliente;
+    } else {
+        socket_ks_notificaciones = cliente;
+    }
+}
 
     while(1)
     {
         op_code operacion;
         if(recibir_opcode(cliente, &operacion) <= 0) {
             log_error(logger, "Cliente desconectado");
+
+            // verificar si era un Memory Stick
+            // si lo era, notificar al KS
+
+            notificar_bsod_al_scheduler();
             break;
         }
         log_info(logger, "Recibo operacion %d", operacion);
@@ -243,4 +262,11 @@ void* atender_cliente(void* arg)
 
     cerrar_conexion(cliente, logger);
     return NULL;
+}
+
+void notificar_bsod_al_scheduler() {
+    if (socket_kernel_scheduler != -1) {
+        log_error(logger, "Memory Stick desconectado — notificando BSOD al Scheduler");
+        enviar_opcode(socket_kernel_scheduler, KM_BSOD);
+    }
 }

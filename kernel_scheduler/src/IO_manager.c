@@ -40,7 +40,7 @@ static char* armar_parametro(t_io_request* req) {
             snprintf(param, 20, "%u", req->size);
             break;
         case TIPO_IO_STDOUT:
-            free(param);//por qué solo se libera acá?
+            free(param);
             param = strdup(req->datos != NULL ? (char*)req->datos : "");
             break;
     }
@@ -96,6 +96,9 @@ static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* d
     op_code ack;
     if (recibir_opcode(socket_kernel_memory, &ack) <= 0) {
         log_error(logger, "Error al recibir ACK de KM en MEM_WRITE");
+
+        pthread_mutex_unlock(&mutex_socket_km);
+
         return;
     }
     /*
@@ -127,7 +130,7 @@ static void* hilo_io_listener(void* arg) {
         if (io->tipo == TIPO_IO_STDIN) {
             char buffer[BUFFER_SIZE];
             memset(buffer, 0, BUFFER_SIZE);
-            recibir_mensaje(io->socket_fd, buffer, BUFFER_SIZE, io->logger);//tendría que ser recibir_string
+            recibir_string(io->socket_fd, buffer, BUFFER_SIZE);
 
             escribir_en_kernel_memory(pid_finalizado, req_copia.dir_logica, buffer, req_copia.size, io->logger);
         }
@@ -166,9 +169,6 @@ static void* hilo_io_listener(void* arg) {
 }
 
 void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_log* logger) {
-    if (s_interfaces == NULL)       //esto está bien acá? No debería ir en un inicializar io_manager?
-        s_interfaces = list_create();
-
     t_io_interfaz* io = malloc(sizeof(t_io_interfaz));
     io->nombre = strdup(nombre);
     io->tipo = tipo;
@@ -176,7 +176,11 @@ void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_lo
     io->logger = logger;
     memset(&io->req_en_vuelo, 0, sizeof(t_io_request));
 
-    pthread_mutex_init(&io->mutex_req, NULL); //misma idea que arriba, esto no debería ir en un inicializador?
+    if (s_interfaces == NULL)
+        s_interfaces = list_create();           // inicializa tanto la lista de interfaces
+    if(&s_mutex_interfaces!=NULL)               // como el mutex. función de inicialización? dónde iría?
+        pthread_mutex_init(&s_mutex_interfaces, NULL);
+    pthread_mutex_init(&io->mutex_req, NULL);   //misma idea que arriba, esto no debería ir en un inicializador?
 
     pthread_mutex_lock(&s_mutex_interfaces);
 
