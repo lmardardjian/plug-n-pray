@@ -203,10 +203,19 @@ void* atender_cliente(void* arg)
         t_memory_stick* stick = malloc(sizeof(t_memory_stick));
         stick->socket = cliente;
         stick->tamanio = tamanio;
-
         list_add(memory_sticks, stick);
-        log_info(logger, "Memory Stick registrado. Tamaño: %u", tamanio);
         
+        log_info(logger, "Memory Stick registrado. Tamaño: %u", tamanio);
+
+        op_code op;
+        while (recibir_opcode(cliente, &op) > 0);
+
+        //si llegamos acá es porque salió del while
+        log_error(logger, "Memory Stick desconectado — notificando BSOD");
+        notificar_bsod_al_scheduler();
+
+        cerrar_conexion(cliente, logger);
+
         return NULL;
     }
 
@@ -223,11 +232,6 @@ void* atender_cliente(void* arg)
         op_code operacion;
         if(recibir_opcode(cliente, &operacion) <= 0) {
             log_error(logger, "Cliente desconectado");
-
-            // verificar si era un Memory Stick
-            // si lo era, notificar al KS
-
-            notificar_bsod_al_scheduler();
             break;
         }
         log_info(logger, "Recibo operacion %d", operacion);

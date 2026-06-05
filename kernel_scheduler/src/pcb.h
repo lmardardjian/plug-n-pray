@@ -1,6 +1,7 @@
 #ifndef PCB_H
 #define PCB_H
 #include <stdint.h>
+#include <commons/temporal.h>
 
 //Enumerador para los estados del proceso
 typedef enum {
@@ -19,7 +20,7 @@ typedef struct {
     t_estado estado;    // Estado actual 
     uint32_t prioridad;
     uint32_t prioridad_original;
-    long tiempo_susp;   // "Long" porque el tiempo está en milisegundos
+    t_temporal* tiempo_susp;   // estructura inicializada cuando el proceso entra en block. se libera cuando sale de block
 } t_pcb;
 
 #endif

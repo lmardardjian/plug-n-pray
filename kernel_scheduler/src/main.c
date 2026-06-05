@@ -1,6 +1,7 @@
 #include "procesos.h"
 #include "scheduler.h"
 #include "IO_manager.h"
+#include "utils/hilos.h"
 #include "corto_plazo.h"
 #include "mutex_manager.h"
 #include <commons/config.h>
@@ -13,10 +14,10 @@
 t_log* logger;
 t_config* config;
 
-uint32_t proximo_pid = 1; // el 0 lo usa el proceso inicial, por eso inicia en 1
+uint32_t proximo_pid = 1; // el 0 lo usa el proceso inicial, por eso inicializa en 1
 pthread_mutex_t mutex_pid;        
 
-bool blue_screen_of_death = false;  // hacemos que sea un bool que modifica KM o un msj que envia el KM?
+bool blue_screen_of_death = false;
 
 int socket_kernel_memory;
 pthread_mutex_t mutex_socket_km;
@@ -24,7 +25,11 @@ pthread_mutex_t mutex_socket_km;
 t_list* p_activos_global;
 pthread_mutex_t mutex_p_activos;
 
-int servidor;
+int cant_prioridades = 0;
+
+char** queues_algoritmos = NULL;
+
+int servidor; //por qué es global? no podría hacerse local del main y pasarse como param a escuchar_conexiones?
 
 // -- Identificación de módulos conectados -------------
 
@@ -189,6 +194,7 @@ int main(int argc, char* argv[]) {
     // Conectar con Kernel Memory
     char* ip_km = config_get_string_value(config, "IP_KERNEL_MEMORY");
     char* puerto_km = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
+
     socket_kernel_memory = conectar_a_modulo(logger, ip_km, puerto_km, "Kernel Memory");
 
     if (socket_kernel_memory == -1) {
@@ -203,6 +209,7 @@ int main(int argc, char* argv[]) {
     log_info(logger, "## Conectado a Kernel Memory");
 
     int socket_km_notificaciones = conectar_a_modulo(logger, ip_km, puerto_km, "Kernel Memory notificaciones");
+
     if (socket_km_notificaciones == -1) {
         log_error(logger, "No se pudo conectar al Notificador del Kernel Memory");
         return EXIT_FAILURE;
@@ -221,6 +228,10 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE; //falta log de error
     }
 
+    queues_algoritmos = config_get_array_value(config, "QUEUES_ALGORITHMS");
+    while (queues_algoritmos[cant_prioridades] != NULL)
+        cant_prioridades++;
+
     // Arrancar hilo dispatcher, hilo servidor e hilo notificador
     crear_hilo(hilo_dispatcher, NULL);
     crear_hilo(escuchar_conexiones, NULL);
@@ -228,7 +239,7 @@ int main(int argc, char* argv[]) {
 
     // Crear proceso inicial PID 0
     char* path_proceso_inicial = argv[2];
-    t_pcb* proceso_inicial = crear_pcb(0, 0);
+    t_pcb* proceso_inicial = crear_pcb(0, 0);//mmm magic number PROCESO_INICIAL y PRIORIDAD_MAXIMA?
 
     pthread_mutex_lock(&mutex_p_activos);
 
@@ -254,7 +265,6 @@ int main(int argc, char* argv[]) {
 
     pthread_mutex_unlock(&mutex_socket_km);
 
-    // Mandarlo a READY
     cambiar_estado(proceso_inicial, ESTADO_READY, logger);
     agregar_a_ready(proceso_inicial);
 

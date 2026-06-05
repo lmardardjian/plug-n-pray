@@ -175,7 +175,7 @@ void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger) {
         free(texto);
 
         // EXECUTE 
-        int fue_syscall = execute(inst, &ctx, fd_scheduler, fd_memory, logger);
+        int fue_syscall = execute(inst, &ctx, fd_scheduler, fd_memory, logger); // podría ser un opcode en vez de un bool de c
         if(fue_syscall) { 
             break;
         }

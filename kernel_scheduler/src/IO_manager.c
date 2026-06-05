@@ -143,8 +143,8 @@ static void* hilo_io_listener(void* arg) {
 
         if (respuesta == RESPUESTA_ERROR) {
             log_error(io->logger, "IO %s reportó error para PID %d", io->nombre, pid_finalizado);
-            continue; //qué implica que dé respuesta error desde el otro lado?
-        }
+            continue;   //qué implica que dé respuesta error desde el otro lado?
+        }               //qué implica si da cualquier otro opcode?
 
         log_info(io->logger, "## (%d) finalizó IO y pasa a READY / SUSP. READY", pid_finalizado);
 
@@ -157,7 +157,7 @@ static void* hilo_io_listener(void* arg) {
             break;
         }
 
-        if (proceso->estado == ESTADO_SUSP_BLOCK) {
+        if (proceso->estado == ESTADO_SUSP_BLOCK) { //esto tiene que seguir así?
             cambiar_estado(proceso, ESTADO_SUSP_READY, io->logger);
         } else {
             cambiar_estado(proceso, ESTADO_READY, io->logger);
@@ -200,6 +200,7 @@ void manejar_syscall_io(t_pcb* proceso, t_io_request* req, t_log* logger) {
     quitar_de_exec(proceso->pid);
     cambiar_estado(proceso, ESTADO_BLOCK, logger);
     agregar_a_block(proceso);
+    agregar_a_clock(proceso->tiempo_susp);
 
     t_io_interfaz* io = buscar_interfaz_por_tipo(req->tipo);
     if (io == NULL) {

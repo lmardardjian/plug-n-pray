@@ -78,7 +78,7 @@ void atender_lectura(int cliente, t_memory_stick_local* stick, t_log* logger)
     free(buffer);
 }
 
-void* atender_cpu(void* arg)
+void* atender_cpu(void* arg) //OJO CON EL NOMBRE ya hay una función atender_cpu
 {
     t_args_cpu* args = (t_args_cpu*) arg;
 
@@ -92,7 +92,7 @@ void* atender_cpu(void* arg)
     {
         op_code operacion;
 
-        if(recibir_opcode(cliente, &operacion) <= 0)
+        if(recibir_opcode(cliente, &operacion) <= 0) //falta log error
             break;
 
         switch(operacion)

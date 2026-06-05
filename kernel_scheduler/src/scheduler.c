@@ -1,10 +1,8 @@
 #include "scheduler.h"
 
-extern int cant_prioridades;
-// es necesario guardar cuantas listas de prioridades hay. List_size del archivo config de queue_algorithms?
+static int cant_prioridades;
 static uint32_t nivel_de_prioridad; 
-// inicializado en 0 o en 1? el proceso inicial tiene prioridad máxima (0) pero eso implica que los demás procesos tienen desde 1 para arriba o desde 0 para arriba?
-// creo que hay que inicializarlo en 0                                     
+pthread_mutex_t mutex_nivel_de_prioridad;
 
 t_queue* cola_ready;
 t_queue* lista_block;
@@ -34,6 +32,8 @@ void inicializar_planificador() {
     pthread_mutex_init(&mutex_susp_block, NULL);
 
     sem_init(&sem_procesos_en_ready, 0, 0);
+
+    pthread_mutex_init(&mutex_nivel_de_prioridad, NULL);
 }
 
 // ------------------- READY --------------------
@@ -68,6 +68,8 @@ void agregar_a_block(t_pcb* proceso) {
     list_add(lista_block, proceso);
 
     pthread_mutex_unlock(&mutex_block);
+
+    proceso->tiempo_susp = temporal_create();
 }
 
 t_pcb* quitar_de_block(uint32_t pid) {
@@ -85,6 +87,9 @@ t_pcb* quitar_de_block(uint32_t pid) {
         }
     }
     pthread_mutex_unlock(&mutex_block);
+
+    if(encontrado!=NULL)
+    temporal_destroy(encontrado->tiempo_susp);
 
     return encontrado;
 }
@@ -129,14 +134,17 @@ t_pcb* quitar_de_susp_ready(uint32_t pid) {
 
     pthread_mutex_lock(&mutex_susp_ready);
 
+    t_pcb* resultado = NULL;
     for (int i = 0; i < list_size(lista_susp_ready); i++) {
         t_pcb* proceso = list_get(lista_susp_ready, i);
         if (proceso->pid == pid) {
-            list_remove(lista_exec, i);
+            resultado = list_remove(lista_susp_ready, i);
             break;
         }
     }
     pthread_mutex_unlock(&mutex_susp_ready);
+
+    return resultado;
 }
 
 // ----------------- SUSP. BLOCK -----------------------
@@ -156,30 +164,28 @@ t_pcb* quitar_de_susp_block() {
 
     pthread_mutex_lock(&mutex_susp_block);
 
-    for(nivel_de_prioridad = 0; nivel_de_prioridad <= cant_prioridades; nivel_de_prioridad++) { 
+    pthread_mutex_lock(&mutex_nivel_de_prioridad);
+
+    for(nivel_de_prioridad = 0; nivel_de_prioridad < cant_prioridades; nivel_de_prioridad++) { 
         lista_prioridades = list_filter(lista_susp_block, prioridad_igual_a);
-        if(lista_prioridades == NULL) {
+        if(list_size(lista_prioridades) == 0) {
+            list_destroy(lista_prioridades);
             continue;
         }
         else if(list_size(lista_prioridades) == 1) {
         proceso = list_remove_by_condition(lista_susp_block, prioridad_igual_a);
-
-        pthread_mutex_unlock(&mutex_susp_block);
-
         break;
         }
         else {
             proceso = mas_tiempo_en_susp_block(lista_prioridades);
-            if(!list_remove_element(lista_susp_block, proceso)) {
-                printf("Error: No se encontró el proceso buscado\n");
-
-                pthread_mutex_unlock(&mutex_susp_block);
-
-                break;
-            }
-            pthread_mutex_unlock(&mutex_susp_block);            
+            list_remove_element(lista_susp_block, proceso);
+            break;            
         }
     }
+    pthread_mutex_unlock(&mutex_nivel_de_prioridad);
+
+    pthread_mutex_unlock(&mutex_susp_block);
+
     return proceso;
 }
 
@@ -190,10 +196,42 @@ bool prioridad_igual_a(void * ptr) {
 
 t_pcb* mas_tiempo_en_susp_block(t_list* lista_prioridades) {
 
-    return (t_pcb*) list_get_minimum(lista_prioridades, mayor_tiempo_susp);
+    return (t_pcb*) list_get_minimum(lista_prioridades, mas_antiguo_en_susp);
 }
 
-void* mayor_tiempo_susp(void* a, void* b) { // tiempo_susp guarda el milisegundo en el que se bloqueó y
-    t_pcb* proceso_a = (t_pcb*) a;          // por eso el mayor tiempo será el que comparándolo con los
-    t_pcb* proceso_b = (t_pcb*) b;          // otros sea el más chico.
-    return proceso_a->tiempo_susp <= proceso_b->tiempo_susp ? proceso_a : proceso_b;
+void* mas_antiguo_en_susp(void* a, void* b) {
+    t_pcb* proceso_a = (t_pcb*) a;
+    t_pcb* proceso_b = (t_pcb*) b;
+
+    temporal_stop(proceso_a->tiempo_susp);
+    temporal_stop(proceso_b->tiempo_susp);
+
+    if(temporal_gettime(proceso_a->tiempo_susp) >= temporal_gettime(proceso_b->tiempo_susp)) {
+        temporal_resume(proceso_a->tiempo_susp);
+        temporal_resume(proceso_b->tiempo_susp);
+        return proceso_a;
+    }
+    else {
+        temporal_resume(proceso_a->tiempo_susp);
+        temporal_resume(proceso_b->tiempo_susp);
+        return proceso_b;
+    }
+}
+
+    /*
+        t_pcb* proceso va a lista_block
+        (proceso->tiempo_susp) = temporal_create()
+
+        (proceso->tiempo_susp) va a lista_clock con función "agregar_a_clock" contiguamente a "agregar_a_block"
+        creo un hilo específico que pasado "x" tiempo se fija si el proceso sigue en block:
+
+        sleep(x)
+        temporal_stop(proceso->tiempo_susp)
+        if(temporal_gettime(proceso->tiempo_susp)>x)
+            temporal_resume(proceso->tiempo_susp)
+            proceso sale de lista_block
+            proceso va a lista_susp_block
+        else
+            list_remove_and_destroy_by_condition(lista_clock, , temporal_destroy)
+
+    */

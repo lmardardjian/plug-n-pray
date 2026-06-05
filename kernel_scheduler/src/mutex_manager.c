@@ -86,6 +86,8 @@ bool mutex_lock(char* nombre, t_pcb* proceso) {
     cambiar_estado(proceso, ESTADO_BLOCK, logger);
 
     agregar_a_block(proceso);
+    
+    agregar_a_clock(proceso->tiempo_susp);
 
     return false;
 }

@@ -8,6 +8,8 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+extern char** queues_algoritmos;
+
 // Colas y listas
 extern t_queue *cola_ready;
 extern t_queue *lista_block;
