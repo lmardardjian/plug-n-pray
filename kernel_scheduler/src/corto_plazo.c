@@ -28,7 +28,7 @@ static pthread_mutex_t mutex_timers;
 static t_list* cpus_con_interrupcion;
 static pthread_mutex_t mutex_interrupciones;
 
-void inicializar_corto_plazo() {
+void inicializar_ks_cpu_manager() {
     cola_cpus_libres = queue_create();
     pthread_mutex_init(&mutex_cpus, NULL);
     sem_init(&sem_cpus_libres, 0, 0);
@@ -183,6 +183,8 @@ void manejar_exit(int socket_cpu, t_pcb* proceso) {
 
     agregar_cpu_libre(socket_cpu);
 
+    intentar_reanudar_proceso();
+
 }
 
 void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
@@ -243,6 +245,7 @@ void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {
 
         // El Scheduler maneja el desalojo directamente
         // sin esperar otro opcode de la CPU
+        
         cancelar_timer(socket_cpu);
         quitar_de_exec(proceso->pid);
         cambiar_estado(proceso, ESTADO_READY, logger);

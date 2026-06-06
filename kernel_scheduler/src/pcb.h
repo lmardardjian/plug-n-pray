@@ -16,11 +16,11 @@ typedef enum {
 
 
 typedef struct {
-    uint32_t pid;       // Identificador único
-    t_estado estado;    // Estado actual 
+    uint32_t pid;               // Identificador único
+    t_estado estado;            // Estado actual
     uint32_t prioridad;
     uint32_t prioridad_original;
-    t_temporal* tiempo_susp;   // estructura inicializada cuando el proceso entra en block. se libera cuando sale de block
+    t_temporal* tiempo_susp;    // estructura inicializada cuando el proceso entra en block. se libera cuando sale de block
 } t_pcb;
 
 #endif

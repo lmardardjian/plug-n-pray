@@ -20,7 +20,7 @@ typedef struct {
     uint32_t quantum_ms;
 } t_args_timer;
 
-void inicializar_corto_plazo();
+void inicializar_ks_cpu_manager();
 void agregar_cpu_libre(int socket_cpu);
 void* hilo_dispatcher(void* arg);
 void manejar_mutex_create(int socket_cpu, t_pcb* proceso); 

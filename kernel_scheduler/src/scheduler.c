@@ -1,30 +1,31 @@
 #include "scheduler.h"
 
-static int cant_prioridades;
-static uint32_t nivel_de_prioridad; 
-pthread_mutex_t mutex_nivel_de_prioridad;
-
+//listas para cada estado (salvo ready por ahora que es cola)
 t_queue* cola_ready;
 t_queue* lista_block;
 t_list* lista_exec;
 t_list* lista_susp_ready;
 t_list* lista_susp_block;
 
+//mutexes para cada lista
 pthread_mutex_t mutex_ready;
 pthread_mutex_t mutex_block;
 pthread_mutex_t mutex_exec;
 pthread_mutex_t mutex_susp_ready;
 pthread_mutex_t mutex_susp_block;
 
+//semáforo productor-consumidor de cola_ready
 sem_t sem_procesos_en_ready;
 
-void inicializar_planificador() {
+void inicializar_ks_planificador() {        //tiene que cambiar con CMN
+    //inicializo listas
     cola_ready = queue_create();
     lista_block = list_create();
     lista_exec = list_create();
     lista_susp_ready = list_create();
     lista_susp_block = list_create();
 
+    //inicializo mutexes
     pthread_mutex_init(&mutex_ready, NULL);
     pthread_mutex_init(&mutex_block, NULL);
     pthread_mutex_init(&mutex_exec, NULL);
@@ -32,30 +33,31 @@ void inicializar_planificador() {
     pthread_mutex_init(&mutex_susp_block, NULL);
 
     sem_init(&sem_procesos_en_ready, 0, 0);
-
-    pthread_mutex_init(&mutex_nivel_de_prioridad, NULL);
 }
 
 // ------------------- READY --------------------
 
 void agregar_a_ready(t_pcb* proceso) {
-    pthread_mutex_lock(&mutex_ready);   //Wait, cierra el candado
 
-    queue_push(cola_ready, proceso);    // Ingresamos el proceso a READY
+    pthread_mutex_lock(&mutex_ready);
 
-    pthread_mutex_unlock(&mutex_ready); //Signal, abre el candado
+    queue_push(cola_ready, proceso);
 
-    sem_post(&sem_procesos_en_ready);   //Avisa que hay un proceso
+    pthread_mutex_unlock(&mutex_ready);
+
+    sem_post(&sem_procesos_en_ready);   //Avisa que hay un proceso en cola_ready
 }
 
-t_pcb* obtener_siguiente_proceso() {//tiene que cambiar con CMN
-    sem_wait(&sem_procesos_en_ready);       //Señal de que hay proceso
+t_pcb* obtener_siguiente_proceso() {        //tiene que cambiar con CMN
+    
+    sem_wait(&sem_procesos_en_ready);
 
-    pthread_mutex_lock(&mutex_ready);       //Wait, cierra el candado
+    pthread_mutex_lock(&mutex_ready);
 
-    t_pcb* proceso = queue_pop(cola_ready); //Sacamos el proceso de READY
+    t_pcb* proceso = queue_pop(cola_ready);
 
-    pthread_mutex_unlock(&mutex_ready);     //Signal, abre el candado
+    pthread_mutex_unlock(&mutex_ready);
+
     return proceso;
 }
 
@@ -69,7 +71,9 @@ void agregar_a_block(t_pcb* proceso) {
 
     pthread_mutex_unlock(&mutex_block);
 
-    proceso->tiempo_susp = temporal_create();
+    proceso->tiempo_susp = temporal_create();   //empieza el contador de tiempo en block
+
+    crear_hilo(hilo_suspension, proceso);       //hilo encargado de, si el proceso está más de lo debido bloqueado, pasarlo a susp_block
 }
 
 t_pcb* quitar_de_block(uint32_t pid) {
@@ -89,7 +93,7 @@ t_pcb* quitar_de_block(uint32_t pid) {
     pthread_mutex_unlock(&mutex_block);
 
     if(encontrado!=NULL)
-    temporal_destroy(encontrado->tiempo_susp);
+    temporal_destroy(encontrado->tiempo_susp); //raro sería tratar de referenciar NULL, no? Jjasjajs
 
     return encontrado;
 }
@@ -159,79 +163,125 @@ void agregar_a_susp_block(t_pcb* proceso) {
 }
 
 t_pcb* quitar_de_susp_block() {
-    t_list* lista_prioridades = NULL;
-    t_pcb* proceso = NULL;
 
     pthread_mutex_lock(&mutex_susp_block);
 
-    pthread_mutex_lock(&mutex_nivel_de_prioridad);
+    t_pcb* proceso = NULL;
 
-    for(nivel_de_prioridad = 0; nivel_de_prioridad < cant_prioridades; nivel_de_prioridad++) { 
-        lista_prioridades = list_filter(lista_susp_block, prioridad_igual_a);
-        if(list_size(lista_prioridades) == 0) {
-            list_destroy(lista_prioridades);
-            continue;
+    for (uint32_t nivel = 0; nivel < cant_prioridades && proceso == NULL; nivel++) { // este for recorre susp_block por nivel de prioridad
+
+        t_pcb* candidato = NULL;
+        for (int i = 0; i < list_size(lista_susp_block); i++) { //este for hace un list_filter a mano y la selección del proceso a reanudar
+            t_pcb* p = list_get(lista_susp_block, i);
+            if (p->prioridad != nivel)
+                continue;
+
+            if (candidato == NULL) {
+                candidato = p;
+            } else {
+                temporal_stop(p->tiempo_susp);
+                temporal_stop(candidato->tiempo_susp);
+
+                bool p_es_mas_antiguo = temporal_gettime(p->tiempo_susp) >= temporal_gettime(candidato->tiempo_susp);
+                
+                temporal_resume(p->tiempo_susp);
+                temporal_resume(candidato->tiempo_susp);
+
+                if (p_es_mas_antiguo)
+                    candidato = p;
+            }
         }
-        else if(list_size(lista_prioridades) == 1) {
-        proceso = list_remove_by_condition(lista_susp_block, prioridad_igual_a);
-        break;
-        }
-        else {
-            proceso = mas_tiempo_en_susp_block(lista_prioridades);
-            list_remove_element(lista_susp_block, proceso);
-            break;            
+
+        if (candidato != NULL) {
+            list_remove_element(lista_susp_block, candidato);
+            proceso = candidato;
         }
     }
-    pthread_mutex_unlock(&mutex_nivel_de_prioridad);
 
     pthread_mutex_unlock(&mutex_susp_block);
 
     return proceso;
 }
 
-bool prioridad_igual_a(void * ptr) {
-    t_pcb* proceso = (t_pcb*) ptr;
-    return proceso->prioridad == nivel_de_prioridad;
-}
+void* hilo_suspension(void* arg) {
+    t_pcb* proceso = (t_pcb*) arg;
+    uint32_t timeout = suspension_timeout; 
 
-t_pcb* mas_tiempo_en_susp_block(t_list* lista_prioridades) {
+    usleep(timeout * 1000); // alternativa a usleep?
 
-    return (t_pcb*) list_get_minimum(lista_prioridades, mas_antiguo_en_susp);
-}
+    if (proceso->estado == ESTADO_BLOCK) { // si al despertar el hilo el proceso sigue bloqueado => va a susp_block
 
-void* mas_antiguo_en_susp(void* a, void* b) {
-    t_pcb* proceso_a = (t_pcb*) a;
-    t_pcb* proceso_b = (t_pcb*) b;
+        quitar_de_block(proceso->pid);
+        cambiar_estado(proceso, ESTADO_SUSP_BLOCK, logger);
+        agregar_a_susp_block(proceso);
 
-    temporal_stop(proceso_a->tiempo_susp);
-    temporal_stop(proceso_b->tiempo_susp);
+        //falta definir flujo hacia km para quitar de memoria al proceso y todo eso
 
-    if(temporal_gettime(proceso_a->tiempo_susp) >= temporal_gettime(proceso_b->tiempo_susp)) {
-        temporal_resume(proceso_a->tiempo_susp);
-        temporal_resume(proceso_b->tiempo_susp);
-        return proceso_a;
+        /*
+        pthread_mutex_lock(&mutex_socket_km);
+
+        enviar_opcode(socket_kernel_memory, KM_SUSPENDER_PROCESO);
+        enviar_uint32(socket_kernel_memory, proceso->pid);
+
+        op_code ack;
+        recibir_opcode(socket_kernel_memory, &ack);
+
+        pthread_mutex_unlock(&mutex_socket_km);
+        */
     }
-    else {
-        temporal_resume(proceso_a->tiempo_susp);
-        temporal_resume(proceso_b->tiempo_susp);
-        return proceso_b;
-    }
+
+    return NULL;
 }
 
-    /*
-        t_pcb* proceso va a lista_block
-        (proceso->tiempo_susp) = temporal_create()
+void intentar_reanudar_proceso() { //enfasis en "intentar"
 
-        (proceso->tiempo_susp) va a lista_clock con función "agregar_a_clock" contiguamente a "agregar_a_block"
-        creo un hilo específico que pasado "x" tiempo se fija si el proceso sigue en block:
+    //primero intentar reanudar procesos en SUSP_READY
 
-        sleep(x)
-        temporal_stop(proceso->tiempo_susp)
-        if(temporal_gettime(proceso->tiempo_susp)>x)
-            temporal_resume(proceso->tiempo_susp)
-            proceso sale de lista_block
-            proceso va a lista_susp_block
-        else
-            list_remove_and_destroy_by_condition(lista_clock, , temporal_destroy)
+    pthread_mutex_lock(&mutex_susp_ready);
 
-    */
+    for (int i = 0; i < list_size(lista_susp_ready); i++) {
+        t_pcb* proceso = list_get(lista_susp_ready, i);
+
+        pthread_mutex_lock(&mutex_socket_km);
+
+        enviar_opcode(socket_kernel_memory, KM_REANUDAR_PROCESO);
+        enviar_uint32(socket_kernel_memory, proceso->pid);
+
+        op_code ack;
+        recibir_opcode(socket_kernel_memory, &ack);
+
+        pthread_mutex_unlock(&mutex_socket_km);
+
+        if (ack == RESPUESTA_OK) {
+            list_remove(lista_susp_ready, i);
+            cambiar_estado(proceso, ESTADO_READY, logger);
+            agregar_a_ready(proceso);
+            i--;  //ajustar índice porque removimos un elemento
+        }
+        //si no hay memoria para este, intentamos con el siguiente
+    }
+    pthread_mutex_unlock(&mutex_susp_ready);
+
+    //después intentar reanudar procesos en SUSP_BLOCK
+
+    t_pcb* proceso = quitar_de_susp_block();
+    if (proceso == NULL) 
+        return;
+
+    pthread_mutex_lock(&mutex_socket_km);
+
+    enviar_opcode(socket_kernel_memory, KM_REANUDAR_PROCESO);
+    enviar_uint32(socket_kernel_memory, proceso->pid);
+
+    op_code ack;
+    recibir_opcode(socket_kernel_memory, &ack);
+
+    pthread_mutex_unlock(&mutex_socket_km);
+
+    if (ack == RESPUESTA_OK) {
+        cambiar_estado(proceso, ESTADO_READY, logger);
+        agregar_a_ready(proceso);
+    } else {
+        agregar_a_susp_block(proceso);
+    }
+}

@@ -5,11 +5,9 @@
 #include <string.h>
 
 extern t_log* logger;
-
-t_list* lista_mutexes;
 static pthread_mutex_t mutex_lista_mutexes;
 
-void inicializar_mutexes() {
+void inicializar_ks_mutex_manager() {
     lista_mutexes = list_create();
     pthread_mutex_init(&mutex_lista_mutexes, NULL);
 }
@@ -86,8 +84,6 @@ bool mutex_lock(char* nombre, t_pcb* proceso) {
     cambiar_estado(proceso, ESTADO_BLOCK, logger);
 
     agregar_a_block(proceso);
-    
-    agregar_a_clock(proceso->tiempo_susp);
 
     return false;
 }

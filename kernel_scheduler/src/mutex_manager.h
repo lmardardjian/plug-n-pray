@@ -6,6 +6,7 @@
 #include <commons/collections/list.h>
 #include <pthread.h>
 
+extern t_list* lista_mutexes;
 typedef struct {
     char* nombre;
     t_pcb* duenio;
@@ -13,10 +14,9 @@ typedef struct {
     pthread_mutex_t mutex_interno;
 } t_mutex_kernel;
 
-extern t_list* lista_mutexes;
 
 // Inicialización
-void inicializar_mutexes();
+void inicializar_ks_mutex_manager();
 
 // Manejo interno
 t_mutex_kernel* crear_mutex(char* nombre);

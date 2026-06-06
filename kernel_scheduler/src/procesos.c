@@ -1,10 +1,9 @@
 #include "procesos.h"
 
-extern t_list* p_activos_global;
-
 t_pcb* crear_pcb(uint32_t pid, uint32_t prioridad) {
     t_pcb* proceso = malloc(sizeof(t_pcb));
-    if (proceso == NULL) return NULL; //falta logger?
+    if (proceso == NULL) //no es medio muy paranóico este if?
+        return NULL;
 
     proceso -> pid = pid;
     proceso -> estado = ESTADO_NEW;

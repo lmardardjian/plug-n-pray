@@ -5,14 +5,14 @@
 #include <string.h>
 
 // Socket hacia Kernel Memory (lo recibimos al registrar la primera interfaz)
-extern pthread_mutex_t mutex_socket_km;
 extern int socket_kernel_memory;
+extern pthread_mutex_t mutex_socket_km;
 
 // Lista de interfaces registradas
 static t_list *s_interfaces = NULL;
 static pthread_mutex_t s_mutex_interfaces;
 
-static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) { //habría que usar la lista de i/o
+static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) {
 
     pthread_mutex_lock(&s_mutex_interfaces);
 
@@ -36,9 +36,11 @@ static char* armar_parametro(t_io_request* req) {
         case TIPO_IO_SLEEP:
             snprintf(param, 20, "%u", req->sleep_ms);
             break;
+
         case TIPO_IO_STDIN:
             snprintf(param, 20, "%u", req->size);
             break;
+
         case TIPO_IO_STDOUT:
             free(param);
             param = strdup(req->datos != NULL ? (char*)req->datos : "");
@@ -71,16 +73,16 @@ static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t s
 
         return calloc(size + 1, 1);
     }
-    /*
-    enviar_uint32(socket_kernel_memory, pid);                       ]
-    enviar_uint32(socket_kernel_memory, dir_logica);                ]
-    enviar_uint32(socket_kernel_memory, size);                      ]
-                                                                    ]   //not in this checkpoint!
-    char* buffer = malloc(size + 1);                                ]
-    memset(buffer, 0, size + 1);                                    ]
-    recibir_mensaje(socket_kernel_memory, buffer, size + 1, logger);]
-    return buffer;                                                  ]
-    */
+    
+    enviar_uint32(socket_kernel_memory, pid);
+    enviar_uint32(socket_kernel_memory, dir_logica);
+    enviar_uint32(socket_kernel_memory, size);
+    
+    char* buffer = malloc(size + 1);
+    memset(buffer, 0, size + 1);
+    recibir_mensaje(socket_kernel_memory, buffer, size + 1, logger);
+    return buffer;                                                  
+
 
     pthread_mutex_unlock(&mutex_socket_km);
 
@@ -101,16 +103,16 @@ static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* d
 
         return;
     }
-    /*
-    enviar_uint32(socket_kernel_memory, pid);                       ]
-    enviar_uint32(socket_kernel_memory, dir_logica);                ]
-    enviar_uint32(socket_kernel_memory, size);                      ]
-                                                                    ]   //not in this checkpoint!
-    enviar_mensaje(socket_kernel_memory, datos, logger);            ]
-                                                                    ]
-    op_code ack;                                                    ]
-    recibir_opcode(socket_kernel_memory, &ack);                     ]
-    */
+    
+    enviar_uint32(socket_kernel_memory, pid);
+    enviar_uint32(socket_kernel_memory, dir_logica);
+    enviar_uint32(socket_kernel_memory, size);
+    
+    enviar_mensaje(socket_kernel_memory, datos, logger);
+    
+    op_code ack;
+    recibir_opcode(socket_kernel_memory, &ack);
+    
    pthread_mutex_unlock(&mutex_socket_km);
 
 }
@@ -157,7 +159,7 @@ static void* hilo_io_listener(void* arg) {
             break;
         }
 
-        if (proceso->estado == ESTADO_SUSP_BLOCK) { //esto tiene que seguir así?
+        if (proceso->estado == ESTADO_SUSP_BLOCK) { //revisar con nueva lógica susp_block
             cambiar_estado(proceso, ESTADO_SUSP_READY, io->logger);
         } else {
             cambiar_estado(proceso, ESTADO_READY, io->logger);
@@ -200,7 +202,6 @@ void manejar_syscall_io(t_pcb* proceso, t_io_request* req, t_log* logger) {
     quitar_de_exec(proceso->pid);
     cambiar_estado(proceso, ESTADO_BLOCK, logger);
     agregar_a_block(proceso);
-    agregar_a_clock(proceso->tiempo_susp);
 
     t_io_interfaz* io = buscar_interfaz_por_tipo(req->tipo);
     if (io == NULL) {

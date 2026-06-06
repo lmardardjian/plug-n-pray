@@ -6,6 +6,7 @@
 #include "mutex_manager.h"
 #include <commons/config.h>
 #include <sys/socket.h>
+#include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 
@@ -15,7 +16,7 @@ t_log* logger;
 t_config* config;
 
 uint32_t proximo_pid = 1; // el 0 lo usa el proceso inicial, por eso inicializa en 1
-pthread_mutex_t mutex_pid;        
+pthread_mutex_t mutex_pid;
 
 bool blue_screen_of_death = false;
 
@@ -25,7 +26,9 @@ pthread_mutex_t mutex_socket_km;
 t_list* p_activos_global;
 pthread_mutex_t mutex_p_activos;
 
-int cant_prioridades = 0;
+int cant_prioridades = 1;
+
+uint32_t suspension_timeout;
 
 char** queues_algoritmos = NULL;
 
@@ -108,7 +111,7 @@ void* escuchar_conexiones(void* arg) {
             continue;
         }
 
-        int32_t id_modulo = handshake_servidor(cliente, logger); //falta log si el handshake falla
+        int32_t id_modulo = handshake_servidor(cliente, logger);
 
         int* socket = malloc(sizeof(int));
         *socket = cliente;
@@ -117,17 +120,19 @@ void* escuchar_conexiones(void* arg) {
             case MODULO_CPU:
                 crear_hilo(atender_cpu, socket);
                 break;
+
             case MODULO_IO:
                 tipo_io tipo;
                 if(recibir_tipo_io(cliente, &tipo)<=0) {
                 log_error(logger, "Error recibiendo tipo IO");
                 free(socket);
                 break;
-                }
 
+                }
                 io_registrar_interfaz("io", tipo, cliente, logger);
                 free(socket);
                 break;
+
             default:
                 log_warning(logger, "Módulo desconocido: %d", id_modulo);
                 free(socket);
@@ -151,12 +156,20 @@ void* escuchar_kernel_memory(void* arg) {
                 log_error(logger, "## Kernel Memory reportó corrupción de memoria");
                 blue_screen_of_death = true;
                 break;
+            //acá agregar case para si km notifica que hay memoria disponible por compactación o por nuevo memory stick    
             default:
                 log_warning(logger, "Opcode inesperado de KM: %d", opcode);
                 break;
         }
     }
     return NULL;
+}
+
+static void inicializar_ks_estructuras() {
+    p_activos_global = list_create();   
+    pthread_mutex_init(&mutex_pid, NULL);
+    pthread_mutex_init(&mutex_socket_km, NULL);
+    pthread_mutex_init(&mutex_p_activos, NULL);
 }
 
 //-- Main ---------------------------------------------------------------
@@ -176,20 +189,19 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
+    suspension_timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
+
 
     // Logger
     char* log_level_str = config_get_string_value(config, "LOG_LEVEL");
     t_log_level log_level = log_level_from_string(log_level_str);
     logger = log_create("kernel_scheduler.log", "KERNEL", 1, log_level);
 
-    // Inicializar las estructuras
-    pthread_mutex_init(&mutex_pid, NULL);
-    pthread_mutex_init(&mutex_socket_km, NULL);
-    pthread_mutex_init(&mutex_p_activos, NULL);
-    p_activos_global = list_create();     //todo esto podría ser una función
-    inicializar_planificador();
-    inicializar_mutexes();
-    inicializar_corto_plazo();            //no se podría poner lo de esta función en inicializar_planificador?
+    // Inicializar lo pertinente al ks
+    inicializar_ks_estructuras();
+    inicializar_ks_planificador();
+    inicializar_ks_mutex_manager();
+    inicializar_ks_cpu_manager();
 
     // Conectar con Kernel Memory
     char* ip_km = config_get_string_value(config, "IP_KERNEL_MEMORY");
@@ -225,12 +237,17 @@ int main(int argc, char* argv[]) {
     char* puerto = config_get_string_value(config, "PUERTO_ESCUCHA");
     servidor = iniciar_servidor_modulo(logger, puerto, "Kernel Scheduler");
     if (servidor == -1) {
-        return EXIT_FAILURE; //falta log de error
+        log_error(logger, "Fallo al crear servidor");
+        return EXIT_FAILURE;
     }
 
-    queues_algoritmos = config_get_array_value(config, "QUEUES_ALGORITHMS");
-    while (queues_algoritmos[cant_prioridades] != NULL)
-        cant_prioridades++;
+    char* algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
+    if(strcmp(algoritmo, "CMN") == 0) {
+        cant_prioridades = 0;
+        queues_algoritmos = config_get_array_value(config, "QUEUES_ALGORITHMS");
+        while (queues_algoritmos[cant_prioridades] != NULL)
+            cant_prioridades++;
+    }
 
     // Arrancar hilo dispatcher, hilo servidor e hilo notificador
     crear_hilo(hilo_dispatcher, NULL);

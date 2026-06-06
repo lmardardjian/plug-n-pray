@@ -1,6 +1,7 @@
 #ifndef MENSAJES_H
 #define MENSAJES_H
 
+#include<stdint.h>
 #include <commons/collections/list.h>
 
 typedef enum {
@@ -17,6 +18,8 @@ typedef enum {
     KM_MEM_READ,
     KM_MEM_WRITE,
     KM_ESPACIO_LIBRE,
+    KM_SUSPENDER_PROCESO,
+    KM_REANUDAR_PROCESO,
     KM_BSOD,
 
     //respuestas
