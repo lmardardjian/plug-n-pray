@@ -21,6 +21,7 @@ typedef struct {
     uint32_t prioridad;
     uint32_t prioridad_original;
     t_temporal* tiempo_susp;    // estructura inicializada cuando el proceso entra en block. se libera cuando sale de block
+    pthread_mutex_t mutex_estado;
 } t_pcb;
 
 #endif

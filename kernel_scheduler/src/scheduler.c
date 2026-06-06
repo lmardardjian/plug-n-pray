@@ -203,32 +203,46 @@ t_pcb* quitar_de_susp_block() {
     return proceso;
 }
 
+t_pcb* quitar_de_susp_block_por_pid(uint32_t pid) {
+
+    pthread_mutex_lock(&mutex_susp_block);
+
+    t_pcb* resultado = NULL;
+    for (int i = 0; i < list_size(lista_susp_block); i++) {
+        t_pcb* p = list_get(lista_susp_block, i);
+        if (p->pid == pid) {
+            resultado = list_remove(lista_susp_block, i);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&mutex_susp_block);
+
+    return resultado;
+}
+
 void* hilo_suspension(void* arg) {
     t_pcb* proceso = (t_pcb*) arg;
-    uint32_t timeout = suspension_timeout; 
+    usleep(suspension_timeout * 1000);
 
-    usleep(timeout * 1000); // alternativa a usleep?
+    if (proceso->estado != ESTADO_BLOCK)
+        return NULL;
+        // El listener ya lo movió a READY — no hacer nada
 
-    if (proceso->estado == ESTADO_BLOCK) { // si al despertar el hilo el proceso sigue bloqueado => va a susp_block
+    // Todavía en BLOCK — suspender
+    quitar_de_block(proceso->pid);
+    cambiar_estado(proceso, ESTADO_SUSP_BLOCK, logger);
+    agregar_a_susp_block(proceso);
 
-        quitar_de_block(proceso->pid);
-        cambiar_estado(proceso, ESTADO_SUSP_BLOCK, logger);
-        agregar_a_susp_block(proceso);
+    // Notificar a KM
+    pthread_mutex_lock(&mutex_socket_km);
 
-        //falta definir flujo hacia km para quitar de memoria al proceso y todo eso
+    enviar_opcode(socket_kernel_memory, KM_SUSPENDER_PROCESO);
+    enviar_uint32(socket_kernel_memory, proceso->pid);
+    
+    op_code ack;
+    recibir_opcode(socket_kernel_memory, &ack);
 
-        /*
-        pthread_mutex_lock(&mutex_socket_km);
-
-        enviar_opcode(socket_kernel_memory, KM_SUSPENDER_PROCESO);
-        enviar_uint32(socket_kernel_memory, proceso->pid);
-
-        op_code ack;
-        recibir_opcode(socket_kernel_memory, &ack);
-
-        pthread_mutex_unlock(&mutex_socket_km);
-        */
-    }
+    pthread_mutex_unlock(&mutex_socket_km);
 
     return NULL;
 }

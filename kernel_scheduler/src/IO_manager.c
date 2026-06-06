@@ -154,16 +154,20 @@ static void* hilo_io_listener(void* arg) {
             free(req_copia.datos);
 
         t_pcb* proceso = quitar_de_block(pid_finalizado);
-        if (proceso == NULL) {
-            log_error(io->logger, "PID %d no estaba en BLOCK al finalizar IO", pid_finalizado);
-            break;
-        }
 
-        if (proceso->estado == ESTADO_SUSP_BLOCK) { //revisar con nueva lógica susp_block
-            cambiar_estado(proceso, ESTADO_SUSP_READY, io->logger);
-        } else {
+        if (proceso != NULL) {
+            // Caso 1: todavía estaba en BLOCK
             cambiar_estado(proceso, ESTADO_READY, io->logger);
             agregar_a_ready(proceso);
+        } else {
+            // Caso 2: ya fue suspendido, buscar en SUSP_BLOCK
+            proceso = quitar_de_susp_block_por_pid(pid_finalizado);
+                if (proceso != NULL) {
+                    cambiar_estado(proceso, ESTADO_SUSP_READY, io->logger);
+                    agregar_a_susp_ready(proceso);
+                } else {
+                    log_error(io->logger, "PID %d no estaba en BLOCK ni SUSP_BLOCK", pid_finalizado);
+                }
         }
     }
 

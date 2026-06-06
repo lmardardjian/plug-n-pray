@@ -9,6 +9,7 @@ t_pcb* crear_pcb(uint32_t pid, uint32_t prioridad) {
     proceso -> estado = ESTADO_NEW;
     proceso -> prioridad = prioridad;
     proceso -> prioridad_original = prioridad;
+    pthread_mutex_init(&proceso->mutex_estado, NULL);
 
     return proceso;
 }
@@ -73,6 +74,11 @@ static char* estado_to_string(t_estado estado) {
 }
 
 void cambiar_estado(t_pcb *proceso, t_estado nuevo_estado, t_log* logger) {
+
+    pthread_mutex_lock(&proceso->mutex_estado);
+
     log_info(logger, "## (%d) Pasa del estado %s al estado %s", proceso->pid, estado_to_string(proceso->estado), estado_to_string(nuevo_estado));
     proceso -> estado = nuevo_estado;
+
+    pthread_mutex_unlock(&proceso->mutex_estado);
 }
