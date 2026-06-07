@@ -1,6 +1,7 @@
 #ifndef PCB_H
 #define PCB_H
 #include <stdint.h>
+#include <pthread.h>
 #include <commons/temporal.h>
 
 //Enumerador para los estados del proceso

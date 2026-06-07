@@ -13,7 +13,7 @@ extern pthread_mutex_t mutex_pid;
 extern uint32_t proximo_pid;
 
 extern pthread_mutex_t mutex_socket_km;
-extern int socket_kernel_memory;
+extern int socket_kernel_memory_operaciones;
 
 //-- COLA DE CPUs LIBRES ----------------------
 
@@ -93,7 +93,7 @@ void* hilo_dispatcher(void* arg) {
             args->quantum_ms = quantum;
 
             pthread_t timer;
-            pthread_create(&timer, NULL, hilo_quantum, args);
+            pthread_create(&timer, NULL, hilo_quantum, args);//no podríamos usar crear_hilo?
             pthread_detach(timer);
 
             // Guardamos el timer para poder cancelarlo
@@ -187,7 +187,7 @@ void manejar_exit(int socket_cpu, t_pcb* proceso) {
 
 }
 
-void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
+void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operaciones) {
     char path[256] = {0}; //mmm magic number BUFFER_SIZE?
     uint32_t prioridad;
 
@@ -212,13 +212,13 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory) {
 
     pthread_mutex_lock(&mutex_socket_km);
 
-    enviar_opcode(socket_kernel_memory, KM_CREAR_PROCESO);
-    enviar_uint32(socket_kernel_memory, pid_nuevo);
-    enviar_string(socket_kernel_memory, path);
+    enviar_opcode(socket_kernel_memory_operaciones, KM_CREAR_PROCESO);
+    enviar_uint32(socket_kernel_memory_operaciones, pid_nuevo);
+    enviar_string(socket_kernel_memory_operaciones, path);
 
     op_code ack;
 
-    if(recibir_opcode(socket_kernel_memory, &ack)<=0) {
+    if(recibir_opcode(socket_kernel_memory_operaciones, &ack)<=0) {
         log_error(logger, "Error al recibir ACK de Kernel Memory para PID %d", pid_nuevo);
 
         pthread_mutex_unlock(&mutex_socket_km);

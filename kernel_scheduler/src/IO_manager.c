@@ -5,8 +5,8 @@
 #include <string.h>
 
 // Socket hacia Kernel Memory (lo recibimos al registrar la primera interfaz)
-extern int socket_kernel_memory;
 extern pthread_mutex_t mutex_socket_km;
+extern int socket_kernel_memory_operaciones;
 
 // Lista de interfaces registradas
 static t_list *s_interfaces = NULL;
@@ -63,10 +63,10 @@ static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t s
 
     pthread_mutex_lock(&mutex_socket_km);
 
-    enviar_opcode(socket_kernel_memory, KM_MEM_READ);
+    enviar_opcode(socket_kernel_memory_operaciones, KM_MEM_READ);
 
     op_code ack;
-    if (recibir_opcode(socket_kernel_memory, &ack) <= 0) {
+    if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0) {
         log_error(logger, "Error al recibir ACK de KM en MEM_READ");
 
         pthread_mutex_unlock(&mutex_socket_km);
@@ -74,29 +74,27 @@ static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t s
         return calloc(size + 1, 1);
     }
     
-    enviar_uint32(socket_kernel_memory, pid);
-    enviar_uint32(socket_kernel_memory, dir_logica);
-    enviar_uint32(socket_kernel_memory, size);
+    enviar_uint32(socket_kernel_memory_operaciones, pid);
+    enviar_uint32(socket_kernel_memory_operaciones, dir_logica);
+    enviar_uint32(socket_kernel_memory_operaciones, size);
     
     char* buffer = malloc(size + 1);
     memset(buffer, 0, size + 1);
-    recibir_mensaje(socket_kernel_memory, buffer, size + 1, logger);
-    return buffer;                                                  
-
-
+    recibir_buffer(socket_kernel_memory_operaciones, buffer, size);
+    
     pthread_mutex_unlock(&mutex_socket_km);
 
-    return calloc(size + 1, 1);  // buffer vacío por ahora
+    return buffer;                                                  
 }
 
 static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* datos, uint32_t size, t_log* logger) {
 
     pthread_mutex_lock(&mutex_socket_km);
 
-    enviar_opcode(socket_kernel_memory, KM_MEM_WRITE);
+    enviar_opcode(socket_kernel_memory_operaciones, KM_MEM_WRITE);
 
     op_code ack;
-    if (recibir_opcode(socket_kernel_memory, &ack) <= 0) {
+    if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0) {
         log_error(logger, "Error al recibir ACK de KM en MEM_WRITE");
 
         pthread_mutex_unlock(&mutex_socket_km);
@@ -104,14 +102,13 @@ static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* d
         return;
     }
     
-    enviar_uint32(socket_kernel_memory, pid);
-    enviar_uint32(socket_kernel_memory, dir_logica);
-    enviar_uint32(socket_kernel_memory, size);
+    enviar_uint32(socket_kernel_memory_operaciones, pid);
+    enviar_uint32(socket_kernel_memory_operaciones, dir_logica);
+    enviar_uint32(socket_kernel_memory_operaciones, size);
     
-    enviar_mensaje(socket_kernel_memory, datos, logger);
-    
-    op_code ack;
-    recibir_opcode(socket_kernel_memory, &ack);
+    enviar_mensaje(socket_kernel_memory_operaciones, datos, logger);
+
+    recibir_opcode(socket_kernel_memory_operaciones, &ack);
     
    pthread_mutex_unlock(&mutex_socket_km);
 
@@ -174,6 +171,11 @@ static void* hilo_io_listener(void* arg) {
     return NULL;
 }
 
+void inicializar_io_manager() {
+    s_interfaces = list_create();
+    pthread_mutex_init(&s_mutex_interfaces, NULL);
+}
+
 void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_log* logger) {
     t_io_interfaz* io = malloc(sizeof(t_io_interfaz));
     io->nombre = strdup(nombre);
@@ -182,11 +184,7 @@ void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_lo
     io->logger = logger;
     memset(&io->req_en_vuelo, 0, sizeof(t_io_request));
 
-    if (s_interfaces == NULL)
-        s_interfaces = list_create();           // inicializa tanto la lista de interfaces
-    if(&s_mutex_interfaces!=NULL)               // como el mutex. función de inicialización? dónde iría?
-        pthread_mutex_init(&s_mutex_interfaces, NULL);
-    pthread_mutex_init(&io->mutex_req, NULL);   //misma idea que arriba, esto no debería ir en un inicializador?
+    pthread_mutex_init(&io->mutex_req, NULL);
 
     pthread_mutex_lock(&s_mutex_interfaces);
 

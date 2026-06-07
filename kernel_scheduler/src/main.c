@@ -20,13 +20,15 @@ pthread_mutex_t mutex_pid;
 
 bool blue_screen_of_death = false;
 
-int socket_kernel_memory;
+int socket_kernel_memory_operaciones;
 pthread_mutex_t mutex_socket_km;
+
+int socket_km_notificaciones; // no necesita de un mutex porque solo lo usa escuchar_kernel_memory
 
 t_list* p_activos_global;
 pthread_mutex_t mutex_p_activos;
 
-int cant_prioridades = 1;
+int cant_prioridades = 1; //1 por default, cambia si el algoritmo de planificación es CMN
 
 uint32_t suspension_timeout;
 
@@ -91,7 +93,7 @@ void* atender_cpu(void* arg) {
                 break;
 
             case KS_INIT_PROC: 
-                manejar_iniciar_proceso(socket_cpu, socket_kernel_memory);
+                manejar_iniciar_proceso(socket_cpu, socket_kernel_memory_operaciones);
                 break;
 
             default:
@@ -145,7 +147,7 @@ void* escuchar_conexiones(void* arg) {
 void* escuchar_kernel_memory(void* arg) {
     while (1) {
         op_code opcode;
-        if (recibir_opcode(socket_kernel_memory, &opcode) <= 0) {
+        if (recibir_opcode(socket_km_notificaciones, &opcode) <= 0) {
             log_error(logger, "Kernel Memory desconectado");
             blue_screen_of_death = true;
             break;
@@ -156,7 +158,9 @@ void* escuchar_kernel_memory(void* arg) {
                 log_error(logger, "## Kernel Memory reportó corrupción de memoria");
                 blue_screen_of_death = true;
                 break;
+
             //acá agregar case para si km notifica que hay memoria disponible por compactación o por nuevo memory stick    
+            
             default:
                 log_warning(logger, "Opcode inesperado de KM: %d", opcode);
                 break;
@@ -202,25 +206,26 @@ int main(int argc, char* argv[]) {
     inicializar_ks_planificador();
     inicializar_ks_mutex_manager();
     inicializar_ks_cpu_manager();
+    inicializar_io_manager()
 
     // Conectar con Kernel Memory
     char* ip_km = config_get_string_value(config, "IP_KERNEL_MEMORY");
     char* puerto_km = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
 
-    socket_kernel_memory = conectar_a_modulo(logger, ip_km, puerto_km, "Kernel Memory");
+    socket_kernel_memory_operaciones = conectar_a_modulo(logger, ip_km, puerto_km, "Kernel Memory");
 
-    if (socket_kernel_memory == -1) {
+    if (socket_kernel_memory_operaciones == -1) {
         log_error(logger, "No se pudo conectar al Kernel Memory");
         return EXIT_FAILURE;
     }
 
-    if (handshake_cliente(socket_kernel_memory, logger, MODULO_KERNEL_SCHEDULER) == -1) {
+    if (handshake_cliente(socket_kernel_memory_operaciones, logger, MODULO_KERNEL_SCHEDULER) == -1) {
         log_error(logger, "Handshake con Kernel Memory fallido");
         return EXIT_FAILURE;
     }
     log_info(logger, "## Conectado a Kernel Memory");
 
-    int socket_km_notificaciones = conectar_a_modulo(logger, ip_km, puerto_km, "Kernel Memory notificaciones");
+    socket_km_notificaciones = conectar_a_modulo(logger, ip_km, puerto_km, "Kernel Memory notificaciones");
 
     if (socket_km_notificaciones == -1) {
         log_error(logger, "No se pudo conectar al Notificador del Kernel Memory");
@@ -270,12 +275,12 @@ int main(int argc, char* argv[]) {
 
     pthread_mutex_lock(&mutex_socket_km);
 
-    enviar_opcode(socket_kernel_memory, KM_CREAR_PROCESO);
-    enviar_uint32(socket_kernel_memory, 0);                     //mmm magic number PROCESO_INICIAL?
-    enviar_string(socket_kernel_memory, path_proceso_inicial);
+    enviar_opcode(socket_kernel_memory_operaciones, KM_CREAR_PROCESO);
+    enviar_uint32(socket_kernel_memory_operaciones, 0);                     //mmm magic number PROCESO_INICIAL?
+    enviar_string(socket_kernel_memory_operaciones, path_proceso_inicial);
 
     op_code opcode;
-    if (recibir_opcode(socket_kernel_memory, &opcode)<=0 || opcode != RESPUESTA_OK) {
+    if (recibir_opcode(socket_kernel_memory_operaciones, &opcode)<=0 || opcode != RESPUESTA_OK) {
         log_error(logger, "Fallo al crear el proceso inicial");
         return EXIT_FAILURE;
     }
@@ -295,7 +300,7 @@ int main(int argc, char* argv[]) {
         sleep(1);
     }
 
-    cerrar_conexion(socket_kernel_memory, logger);
+    cerrar_conexion(socket_kernel_memory_operaciones, logger);
     cerrar_conexion(servidor, logger);
     config_destroy(config);
     log_destroy(logger);

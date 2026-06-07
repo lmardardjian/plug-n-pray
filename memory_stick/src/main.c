@@ -43,9 +43,9 @@ int main(int argc, char* argv[])
 
     t_log* logger = log_create("memory_stick.log", "MEMORY_STICK", 1, LOG_LEVEL_INFO);
 
-    int socket_kernel_memory = conectar_a_modulo(logger, ip_memory, puerto_memory, "Kernel Memory");
+    int socket_kernel_memory_operaciones = conectar_a_modulo(logger, ip_memory, puerto_memory, "Kernel Memory");
 
-    if(socket_kernel_memory == -1) {
+    if(socket_kernel_memory_operaciones == -1) {
         free(stick->memoria);
         free(stick);
         config_destroy(config);
@@ -53,8 +53,8 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    if(handshake_cliente(socket_kernel_memory, logger, MODULO_MEMORY_STICK) != 0) {
-        cerrar_conexion(socket_kernel_memory, logger);
+    if(handshake_cliente(socket_kernel_memory_operaciones, logger, MODULO_MEMORY_STICK) != 0) {
+        cerrar_conexion(socket_kernel_memory_operaciones, logger);
         free(stick->memoria);
         free(stick);
         config_destroy(config);
@@ -64,12 +64,12 @@ int main(int argc, char* argv[])
 
     log_info(logger, "## Conectado a Kernel Memory");
 
-    enviar_uint32(socket_kernel_memory, stick->tamanio);
+    enviar_uint32(socket_kernel_memory_operaciones, stick->tamanio);
 
     int servidor = iniciar_servidor_modulo(logger, puerto_escucha, "Memory Stick");
 
     if(servidor == -1) {
-        cerrar_conexion(socket_kernel_memory, logger);
+        cerrar_conexion(socket_kernel_memory_operaciones, logger);
         free(stick->memoria);
         free(stick);
         config_destroy(config);
