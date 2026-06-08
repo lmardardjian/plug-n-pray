@@ -74,11 +74,13 @@ void* hilo_dispatcher(void* arg) {
     uint32_t** quantum = malloc(sizeof(uint32_t)*cant_prioridades);
 
     if(strcmp(algoritmo, "CMN")==0) {
-        while (queues_algoritmos[cant_prioridades] != NULL) {
-            if(strcmp(queues_algoritmos[cant_prioridades], "RR")==0) {
-                quantum[cant_prioridades] = config_get_int_value(config, "RR_QUANTUM");
-            } else {
-                quantum[cant_prioridades] = 0;
+        for(int prioridad = 0; prioridad < cant_prioridades; prioridad++) {
+            if(queues_algoritmos[prioridad] != NULL) {
+                if(strcmp(queues_algoritmos[prioridad], "RR")==0) {
+                    quantum[prioridad] = config_get_int_value(config, "RR_QUANTUM");
+                } else {
+                    quantum[prioridad] = 0;
+                }
             }
         }
     }
@@ -96,19 +98,34 @@ void* hilo_dispatcher(void* arg) {
         enviar_uint32(cpu, proceso->pid);
         registrar_cpu_proceso(cpu, proceso);
 
-        if (strcmp(algoritmo, "RR") == 0) {
-            t_args_timer* args = malloc(sizeof(t_args_timer));
-            args->socket_cpu = cpu;
-            args->quantum_ms = quantum;
+        if(strcmp(algoritmo, "CMN") == 0) {    
+            if (strcmp(queues_algoritmos[proceos->prioridad], "RR") == 0) {
+                t_args_timer* args = malloc(sizeof(t_args_timer));
+                args->socket_cpu = cpu;
+                args->quantum_ms = quantum[proceso->prioridad];
 
-            pthread_t timer;
-            pthread_create(&timer, NULL, hilo_quantum, args);//no podríamos usar crear_hilo?
-            pthread_detach(timer);
+                pthread_t timer;
+                pthread_create(&timer, NULL, hilo_quantum, args);//no podríamos usar crear_hilo?
+                pthread_detach(timer);
 
-            // Guardamos el timer para poder cancelarlo
-            guardar_timer(cpu, timer);
+                // Guardamos el timer para poder cancelarlo
+                guardar_timer(cpu, timer);
+            }
+        } else {
+            if (strcmp(algoritmo, "RR") == 0) {
+                t_args_timer* args = malloc(sizeof(t_args_timer));
+                args->socket_cpu = cpu;
+                args->quantum_ms = quantum[0];
+
+                pthread_t timer;
+                pthread_create(&timer, NULL, hilo_quantum, args);//no podríamos usar crear_hilo?
+                pthread_detach(timer);
+
+                // Guardamos el timer para poder cancelarlo
+                guardar_timer(cpu, timer);
+            }
         }
-    }
+    }   
     return NULL;
 }
 

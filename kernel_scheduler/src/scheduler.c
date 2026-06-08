@@ -110,7 +110,7 @@ void agregar_a_ready(t_pcb* proceso) {
                 int socket_cpu_ejecutando = obtener_socket_cpu_de(en_ejecucion->pid);
                 if (socket_cpu_ejecutando != -1) {
                     log_info(logger, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso (%d) con prioridad %d", en_ejecucion->pid, en_ejecucion->prioridad, proceso->pid, proceso->prioridad);
-                    marcar_interrupcion(socket_cpu);  // usa el mecanismo de tick progress
+                    marcar_interrupcion(socket_cpu_ejecutando);  // usa el mecanismo de tick progress
                 }
             break;
             }
@@ -119,7 +119,7 @@ void agregar_a_ready(t_pcb* proceso) {
     }
 }
 
-t_pcb* obtener_siguiente_proceso() {    // cómo sería con múltiples colas?
+t_pcb* obtener_siguiente_proceso() {
     
     sem_wait(&sem_procesos_en_ready);
 
@@ -382,8 +382,7 @@ void* hilo_suspension(void* arg) {
 
 void intentar_reanudar_proceso() {
 
-    // Recolectar candidatos por nivel de prioridad
-    // dentro de cada nivel: primero SUSP_READY, después SUSP_BLOCK
+    // Recolectar candidatos por nivel de prioridad dentro de cada nivel: primero SUSP_READY, después SUSP_BLOCK
     t_list* candidatos = list_create();
 
     pthread_mutex_lock(&mutex_susp_ready);
