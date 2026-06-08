@@ -23,7 +23,7 @@ typedef struct {
     pthread_mutex_t mutex_req;
 } t_io_interfaz;
 
-void inicializar_io_manager()
+void inicializar_io_manager();
 void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_log* logger);
 void manejar_syscall_io(t_pcb* proceso, t_io_request* req, t_log* logger);
 

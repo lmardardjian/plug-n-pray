@@ -9,8 +9,8 @@
 extern t_log* logger;
 extern t_config* config;
 
-extern pthread_mutex_t mutex_pid;
 extern uint32_t proximo_pid;
+extern pthread_mutex_t mutex_pid;
 
 extern pthread_mutex_t mutex_socket_km;
 extern int socket_kernel_memory_operaciones;
@@ -71,11 +71,19 @@ static int obtener_cpu_libre() {
 //-- DISPATCHER -----------------------------
 
 void* hilo_dispatcher(void* arg) {
-    uint32_t quantum = 0;
-    char* algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
+    uint32_t** quantum = malloc(sizeof(uint32_t)*cant_prioridades);
 
+    if(strcmp(algoritmo, "CMN")==0) {
+        while (queues_algoritmos[cant_prioridades] != NULL) {
+            if(strcmp(queues_algoritmos[cant_prioridades], "RR")==0) {
+                quantum[cant_prioridades] = config_get_int_value(config, "RR_QUANTUM");
+            } else {
+                quantum[cant_prioridades] = 0;
+            }
+        }
+    }
     if(strcmp(algoritmo, "RR")==0)
-        quantum = config_get_int_value(config, "RR_QUANTUM");
+        quantum[0] = config_get_int_value(config, "RR_QUANTUM");
 
     while (1) {
         
@@ -86,6 +94,7 @@ void* hilo_dispatcher(void* arg) {
         agregar_a_exec(proceso);
 
         enviar_uint32(cpu, proceso->pid);
+        registrar_cpu_proceso(cpu, proceso);
 
         if (strcmp(algoritmo, "RR") == 0) {
             t_args_timer* args = malloc(sizeof(t_args_timer));

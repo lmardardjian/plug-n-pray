@@ -7,6 +7,9 @@
 #include <semaphore.h>
 #include <pthread.h>
 
+extern char** algoritmo;
+extern int cant_prioridades;
+
 // Para socket_cpu -> hilo timer activo
 typedef struct {
     int socket_cpu;

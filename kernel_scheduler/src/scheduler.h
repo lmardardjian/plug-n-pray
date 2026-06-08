@@ -14,18 +14,19 @@ extern char** queues_algoritmos;
 
 extern int cant_prioridades;
 
+extern bool hay_desalojo_cmn;
+
 extern int socket_kernel_memory_operaciones;
 extern pthread_mutex_t mutex_socket_km;
 
 extern t_log* logger;
 extern uint32_t suspension_timeout;
 
-
 // Colas y listas
 extern t_list** listas_susp_ready;
 extern t_list* lista_block;
 extern t_list* lista_exec;
-extern t_list* lista_susp_ready;
+extern t_list* listas_susp_ready;
 extern t_list** listas_susp_block;
 
 //Mutexes 
@@ -50,10 +51,10 @@ void agregar_a_block(t_pcb* proceso);
 t_pcb* quitar_de_block(uint32_t pid);
 
 void agregar_a_exec(t_pcb* proceso);
+void registrar_cpu_proceso(int socket_cpu_ejecutando, uint32_t pid);
 void quitar_de_exec(uint32_t pid);
 
 void agregar_a_susp_ready(t_pcb* proceso);
-t_pcb* quitar_primero_de_susp_ready();
 t_pcb* quitar_de_susp_ready_por_pid(uint32_t pid);
 
 void agregar_a_susp_block(t_pcb* proceso);

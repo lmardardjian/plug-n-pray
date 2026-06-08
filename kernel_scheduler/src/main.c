@@ -15,26 +15,28 @@
 t_log* logger;
 t_config* config;
 
-uint32_t proximo_pid = 1; // el 0 lo usa el proceso inicial, por eso inicializa en 1
-pthread_mutex_t mutex_pid;
-
-bool blue_screen_of_death = false;
-
+int socket_km_notificaciones; // no necesita de un mutex porque solo lo usa escuchar_kernel_memory
 int socket_kernel_memory_operaciones;
 pthread_mutex_t mutex_socket_km;
 
-int socket_km_notificaciones; // no necesita de un mutex porque solo lo usa escuchar_kernel_memory
-
 t_list* p_activos_global;
 pthread_mutex_t mutex_p_activos;
+
+char** algoritmo;
+char** queues_algoritmos = NULL;
+
+uint32_t proximo_pid = 1; // el 0 lo usa el proceso inicial, por eso inicializa en 1
+pthread_mutex_t mutex_pid;
 
 int cant_prioridades = 1; //1 por default, cambia si el algoritmo de planificación es CMN
 
 uint32_t suspension_timeout;
 
-char** queues_algoritmos = NULL;
-
 int servidor; //por qué es global? no podría hacerse local del main y pasarse como param a escuchar_conexiones?
+
+bool blue_screen_of_death = false;
+
+bool hay_desalojo_cmn = false;
 
 // -- Identificación de módulos conectados -------------
 
@@ -181,8 +183,8 @@ static void inicializar_ks_estructuras() {
 int main(int argc, char* argv[]) {
 
     if (argc < 3) {
-    printf("Uso: %s [config] [path_proceso_inicial]\n", argv[0]); // raro ese string
-    return EXIT_FAILURE;
+        printf("Uso: %s [config] [path_proceso_inicial]\n", argv[0]);
+        return EXIT_FAILURE;
     }
 
 
@@ -192,9 +194,6 @@ int main(int argc, char* argv[]) {
         printf("Error al leer config\n");
         return EXIT_FAILURE;
     }
-
-    suspension_timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
-
 
     // Logger
     char* log_level_str = config_get_string_value(config, "LOG_LEVEL");
@@ -206,7 +205,7 @@ int main(int argc, char* argv[]) {
     inicializar_ks_planificador();
     inicializar_ks_mutex_manager();
     inicializar_ks_cpu_manager();
-    inicializar_io_manager()
+    inicializar_io_manager();
 
     // Conectar con Kernel Memory
     char* ip_km = config_get_string_value(config, "IP_KERNEL_MEMORY");
@@ -246,13 +245,20 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    char* algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
+    // Obtener el algoritmo de planificación
+    algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
     if(strcmp(algoritmo, "CMN") == 0) {
         cant_prioridades = 0;
         queues_algoritmos = config_get_array_value(config, "QUEUES_ALGORITHMS");
         while (queues_algoritmos[cant_prioridades] != NULL)
             cant_prioridades++;
+
+        char* preemtion = config_get_string_value(config, "QUEUE_PREEMPTION");
+        if(strcmp(preemtion, "TRUE")== 0)
+            hay_desalojo_cmn = true;
     }
+
+    suspension_timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
 
     // Arrancar hilo dispatcher, hilo servidor e hilo notificador
     crear_hilo(hilo_dispatcher, NULL);

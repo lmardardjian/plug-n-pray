@@ -106,7 +106,7 @@ static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* d
     enviar_uint32(socket_kernel_memory_operaciones, dir_logica);
     enviar_uint32(socket_kernel_memory_operaciones, size);
     
-    enviar_mensaje(socket_kernel_memory_operaciones, datos, logger);
+    enviar_buffer(socket_kernel_memory_operaciones, datos, size);
 
     recibir_opcode(socket_kernel_memory_operaciones, &ack);
     
