@@ -23,10 +23,10 @@ extern t_log* logger;
 extern uint32_t suspension_timeout;
 
 // Colas y listas
-extern t_list** listas_susp_ready;
+extern t_queue** colas_ready;
 extern t_list* lista_block;
 extern t_list* lista_exec;
-extern t_list* listas_susp_ready;
+extern t_list** listas_susp_ready;
 extern t_list** listas_susp_block;
 
 //Mutexes 

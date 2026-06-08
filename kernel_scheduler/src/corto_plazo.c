@@ -71,7 +71,7 @@ static int obtener_cpu_libre() {
 //-- DISPATCHER -----------------------------
 
 void* hilo_dispatcher(void* arg) {
-    uint32_t** quantum = malloc(sizeof(uint32_t)*cant_prioridades);
+    uint32_t* quantum = malloc(sizeof(uint32_t) * cant_prioridades);
 
     if(strcmp(algoritmo, "CMN")==0) {
         for(int prioridad = 0; prioridad < cant_prioridades; prioridad++) {
@@ -99,7 +99,7 @@ void* hilo_dispatcher(void* arg) {
         registrar_cpu_proceso(cpu, proceso);
 
         if(strcmp(algoritmo, "CMN") == 0) {    
-            if (strcmp(queues_algoritmos[proceos->prioridad], "RR") == 0) {
+            if (strcmp(queues_algoritmos[proceso->prioridad], "RR") == 0) {
                 t_args_timer* args = malloc(sizeof(t_args_timer));
                 args->socket_cpu = cpu;
                 args->quantum_ms = quantum[proceso->prioridad];
@@ -340,7 +340,7 @@ static void* hilo_quantum(void* arg) {
     return NULL;
 }
 
-static void marcar_interrupcion(int socket_cpu) {
+void marcar_interrupcion(int socket_cpu) {
 
     pthread_mutex_lock(&mutex_interrupciones);
 

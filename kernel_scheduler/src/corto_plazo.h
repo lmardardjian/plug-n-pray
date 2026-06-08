@@ -7,7 +7,8 @@
 #include <semaphore.h>
 #include <pthread.h>
 
-extern char** algoritmo;
+extern char* algoritmo;
+extern char** queues_algoritmos;
 extern int cant_prioridades;
 
 // Para socket_cpu -> hilo timer activo
@@ -32,5 +33,6 @@ void manejar_exit(int socket_cpu, t_pcb* proceso);
 void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operaciones);
 void manejar_tick_progress(int socket_cpu, t_pcb* proceso);
 void manejar_fin_quantum(int socket_cpu, t_pcb* proceso);
+void marcar_interrupcion(int socket_cpu);
 
 #endif

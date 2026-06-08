@@ -1,5 +1,6 @@
 #include "scheduler.h"
 #include "utils/hilos.h"
+#include "scheduler.h"
 
 //listas para cada estado
 t_queue** colas_ready;
@@ -56,6 +57,7 @@ void inicializar_ks_planificador() {
     lista_exec = list_create();
     inicializar_listas_susp_ready(cant_prioridades);
     inicializar_listas_susp_block(cant_prioridades);
+    lista_cpu_proceso = list_create();
 
     //inicializo mutexes
     pthread_mutex_init(&mutex_ready, NULL);
@@ -63,6 +65,7 @@ void inicializar_ks_planificador() {
     pthread_mutex_init(&mutex_exec, NULL);
     pthread_mutex_init(&mutex_susp_ready, NULL);
     pthread_mutex_init(&mutex_susp_block, NULL);
+    pthread_mutex_init(&mutex_cpu_proceso, NULL);
 
     sem_init(&sem_procesos_en_ready, 0, 0);
 }
@@ -98,9 +101,7 @@ void agregar_a_ready(t_pcb* proceso) {
 
     pthread_mutex_unlock(&mutex_ready);
 
-    sem_post(&sem_procesos_en_ready);   // Avisa que hay un proceso en colas_ready
-
-    if(hay_desalojo_cmn) {              // Viene del main. Solo es true si el algoritmo de planificación es CMN y si el desalojo entre colas está habilitado
+    if(hay_desalojo_cmn) { // Viene del main. Solo es true si el algoritmo de planificación es CMN y si el desalojo entre colas está habilitado
 
         pthread_mutex_lock(&mutex_exec);
 
@@ -111,12 +112,13 @@ void agregar_a_ready(t_pcb* proceso) {
                 if (socket_cpu_ejecutando != -1) {
                     log_info(logger, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso (%d) con prioridad %d", en_ejecucion->pid, en_ejecucion->prioridad, proceso->pid, proceso->prioridad);
                     marcar_interrupcion(socket_cpu_ejecutando);  // usa el mecanismo de tick progress
+                    break;
                 }
-            break;
             }
         }
         pthread_mutex_unlock(&mutex_exec);
     }
+    sem_post(&sem_procesos_en_ready); // Avisa que hay un proceso en colas_ready
 }
 
 t_pcb* obtener_siguiente_proceso() {
@@ -211,25 +213,22 @@ void quitar_de_exec(uint32_t pid) {
 
     pthread_mutex_lock(&mutex_exec);
 
-    t_pcb* proceso = NULL;
+    t_pcb* encontrado = NULL;
     for (int i = 0; i < list_size(lista_exec); i++) {
-        proceso = list_get(lista_exec, i);
-        if (proceso->pid == pid) {
-            list_remove(lista_exec, i);
+        t_pcb* p = list_get(lista_exec, i);
+        if (p->pid == pid) {
+            encontrado = list_remove(lista_exec, i);
             break;
-        }
-        else {
-            proceso = NULL;
         }
     }
     pthread_mutex_unlock(&mutex_exec);
 
     pthread_mutex_lock(&mutex_cpu_proceso);
 
-    if(proceso != NULL){
+    if(encontrado != NULL){
         for (int i = 0; i < list_size(lista_cpu_proceso); i++) {
             t_cpu_proceso* proceso_en_cpu = list_get(lista_cpu_proceso, i);
-            if (proceso_en_cpu->pid == proceso->pid) {
+            if (proceso_en_cpu->pid == encontrado->pid) {
                 list_remove(lista_cpu_proceso, i);
                 break;
             }
@@ -248,6 +247,35 @@ void agregar_a_susp_ready(t_pcb* proceso) {
     list_add(listas_susp_ready[proceso->prioridad], proceso);
 
     pthread_mutex_unlock(&mutex_susp_ready);
+}
+
+static t_pcb* sacar_mas_antiguo(t_list* lista) {
+    if (list_is_empty(lista)) 
+        return NULL;
+    if (list_size(lista) == 1) 
+        return list_remove(lista, 0);
+
+    int indice = 0;
+    t_pcb* candidato = list_get(lista, 0);
+
+    for (int i = 1; i < list_size(lista); i++) {
+        t_pcb* p = list_get(lista, i);
+
+        temporal_stop(p->tiempo_susp);
+        temporal_stop(candidato->tiempo_susp);
+
+        bool p_es_mas_antiguo = temporal_gettime(p->tiempo_susp) >= temporal_gettime(candidato->tiempo_susp);
+
+        temporal_resume(p->tiempo_susp);
+        temporal_resume(candidato->tiempo_susp);
+
+        if (p_es_mas_antiguo) {
+            candidato = p;
+            indice = i;
+        }
+    }
+
+    return list_remove(lista, indice);
 }
 
 static t_pcb* quitar_primero_de_susp_ready_nivel(int nivel) {
@@ -285,35 +313,6 @@ void agregar_a_susp_block(t_pcb* proceso) {
     pthread_mutex_unlock(&mutex_susp_block);
 }
 
-static t_pcb* sacar_mas_antiguo(t_list* lista) {
-    if (list_is_empty(lista)) 
-        return NULL;
-    if (list_size(lista) == 1) 
-        return list_remove(lista, 0);
-
-    int indice = 0;
-    t_pcb* candidato = list_get(lista, 0);
-
-    for (int i = 1; i < list_size(lista); i++) {
-        t_pcb* p = list_get(lista, i);
-
-        temporal_stop(p->tiempo_susp);
-        temporal_stop(candidato->tiempo_susp);
-
-        bool p_es_mas_antiguo = temporal_gettime(p->tiempo_susp) >= temporal_gettime(candidato->tiempo_susp);
-
-        temporal_resume(p->tiempo_susp);
-        temporal_resume(candidato->tiempo_susp);
-
-        if (p_es_mas_antiguo) {
-            candidato = p;
-            indice = i;
-        }
-    }
-
-    return list_remove(lista, indice);
-}
-
 t_pcb* quitar_de_susp_block() {
 
     pthread_mutex_lock(&mutex_susp_block);
@@ -347,7 +346,7 @@ t_pcb* quitar_de_susp_block_por_pid(uint32_t pid) {
     }
     pthread_mutex_unlock(&mutex_susp_block);
 
-    if (proceso != NULL)
+    if (resultado != NULL)
         temporal_destroy(proceso->tiempo_susp);
 
     return resultado;

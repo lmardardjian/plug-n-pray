@@ -22,8 +22,8 @@ pthread_mutex_t mutex_socket_km;
 t_list* p_activos_global;
 pthread_mutex_t mutex_p_activos;
 
-char** algoritmo;
-char** queues_algoritmos = NULL;
+char* algoritmo;
+char** queues_algoritmos;
 
 uint32_t proximo_pid = 1; // el 0 lo usa el proceso inicial, por eso inicializa en 1
 pthread_mutex_t mutex_pid;
