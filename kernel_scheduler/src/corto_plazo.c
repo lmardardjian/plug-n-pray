@@ -12,7 +12,7 @@ extern t_config* config;
 extern uint32_t proximo_pid;
 extern pthread_mutex_t mutex_pid;
 
-extern pthread_mutex_t mutex_socket_km;
+extern pthread_mutex_t mutex_socket_km_operaciones;
 extern int socket_kernel_memory_operaciones;
 
 //-- COLA DE CPUs LIBRES ----------------------
@@ -238,7 +238,7 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operacione
 
     log_info(logger, "## (%d) Se crea el proceso - Estado: NEW", pid_nuevo);
 
-    pthread_mutex_lock(&mutex_socket_km);
+    pthread_mutex_lock(&mutex_socket_km_operaciones);
 
     enviar_opcode(socket_kernel_memory_operaciones, KM_CREAR_PROCESO);
     enviar_uint32(socket_kernel_memory_operaciones, pid_nuevo);
@@ -249,12 +249,12 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operacione
     if(recibir_opcode(socket_kernel_memory_operaciones, &ack)<=0) {
         log_error(logger, "Error al recibir ACK de Kernel Memory para PID %d", pid_nuevo);
 
-        pthread_mutex_unlock(&mutex_socket_km);
+        pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
         return;
     }
 
-    pthread_mutex_unlock(&mutex_socket_km);
+    pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
     if (ack != RESPUESTA_OK) {
         log_error(logger, "Kernel Memory rechazó la creación del proceso PID %d", pid_nuevo);

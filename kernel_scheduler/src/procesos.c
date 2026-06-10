@@ -2,9 +2,6 @@
 
 t_pcb* crear_pcb(uint32_t pid, uint32_t prioridad) {
     t_pcb* proceso = malloc(sizeof(t_pcb));
-    if (proceso == NULL) //no es medio muy paranóico este if?
-        return NULL;
-
     proceso -> pid = pid;
     proceso -> estado = ESTADO_NEW;
     proceso -> prioridad = prioridad;
@@ -15,11 +12,12 @@ t_pcb* crear_pcb(uint32_t pid, uint32_t prioridad) {
 }
 
 t_pcb* encontrar_proceso_global(uint32_t pid) {
-    t_pcb* resultado = NULL;
 
     pthread_mutex_lock(&mutex_p_activos);
 
-    for (int i = 0; i < list_size(p_activos_global); i++) {
+    t_pcb* resultado = NULL;
+    int tamanio = list_size(p_activos_global);
+    for (int i = 0; i < tamanio; i++) {
         t_pcb* proceso = list_get(p_activos_global, i);
         if (proceso->pid == pid) {
         resultado = proceso;
@@ -36,7 +34,7 @@ void destruir_pcb(void* ptr) {
     free(ptr);
 }
 
-void destruir_todos_global() {
+void destruir_todos_global() { //cambia cuando KM esté completo
 
     pthread_mutex_lock(&mutex_p_activos);
 
@@ -68,7 +66,7 @@ static char* estado_to_string(t_estado estado) {
         case ESTADO_SUSP_BLOCK: 
             return "SUSP_BLOCK";
 
-        default:                
+        default:
             return "DESCONOCIDO";
     }
 }

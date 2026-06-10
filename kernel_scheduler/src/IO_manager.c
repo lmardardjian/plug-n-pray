@@ -4,11 +4,11 @@
 #include "utils/hilos.h"
 #include <string.h>
 
-// Socket hacia Kernel Memory (lo recibimos al registrar la primera interfaz)
-extern pthread_mutex_t mutex_socket_km;
+//socket hacia Kernel Memory (lo recibimos al registrar la primera interfaz).
+extern pthread_mutex_t mutex_socket_km_operaciones;
 extern int socket_kernel_memory_operaciones;
 
-// Lista de interfaces registradas
+//lista de interfaces registradas. Solo debe haber una de cada tipo.
 static t_list *s_interfaces = NULL;
 static pthread_mutex_t s_mutex_interfaces;
 
@@ -17,7 +17,8 @@ static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) {
     pthread_mutex_lock(&s_mutex_interfaces);
 
     t_io_interfaz* resultado = NULL;
-    for (int i = 0; i < list_size(s_interfaces); i++) {
+    int tamanio = list_size(s_interfaces);
+    for (int i = 0; i < tamanio; i++) {
         t_io_interfaz* io = list_get(s_interfaces, i);
         if (io->tipo == tipo) {
             resultado = io;
@@ -61,7 +62,7 @@ static void enviar_a_io(t_io_interfaz* io, t_io_request* req) {
 
 static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t size, t_log* logger) {
 
-    pthread_mutex_lock(&mutex_socket_km);
+    pthread_mutex_lock(&mutex_socket_km_operaciones);
 
     enviar_opcode(socket_kernel_memory_operaciones, KM_MEM_READ);
 
@@ -69,10 +70,11 @@ static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t s
     if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0) {
         log_error(logger, "Error al recibir ACK de KM en MEM_READ");
 
-        pthread_mutex_unlock(&mutex_socket_km);
+        pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
         return calloc(size + 1, 1);
     }
+    // DUDA: Una vez que recibimos el op_code no deberíamos chequear que es RESPUESTA_OK?
     
     enviar_uint32(socket_kernel_memory_operaciones, pid);
     enviar_uint32(socket_kernel_memory_operaciones, dir_logica);
@@ -82,14 +84,14 @@ static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t s
     memset(buffer, 0, size + 1);
     recibir_buffer(socket_kernel_memory_operaciones, buffer, size);
     
-    pthread_mutex_unlock(&mutex_socket_km);
+    pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
     return buffer;                                                  
 }
 
 static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* datos, uint32_t size, t_log* logger) {
 
-    pthread_mutex_lock(&mutex_socket_km);
+    pthread_mutex_lock(&mutex_socket_km_operaciones);
 
     enviar_opcode(socket_kernel_memory_operaciones, KM_MEM_WRITE);
 
@@ -97,10 +99,11 @@ static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* d
     if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0) {
         log_error(logger, "Error al recibir ACK de KM en MEM_WRITE");
 
-        pthread_mutex_unlock(&mutex_socket_km);
+        pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
         return;
     }
+    // DUDA: Una vez que recibimos el op_code no deberíamos chequear que es RESPUESTA_OK?
     
     enviar_uint32(socket_kernel_memory_operaciones, pid);
     enviar_uint32(socket_kernel_memory_operaciones, dir_logica);
@@ -110,7 +113,7 @@ static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* d
 
     recibir_opcode(socket_kernel_memory_operaciones, &ack);
     
-   pthread_mutex_unlock(&mutex_socket_km);
+   pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
 }
 
@@ -153,11 +156,9 @@ static void* hilo_io_listener(void* arg) {
         t_pcb* proceso = quitar_de_block(pid_finalizado);
 
         if (proceso != NULL) {
-            // Caso 1: todavía estaba en BLOCK
             cambiar_estado(proceso, ESTADO_READY, io->logger);
             agregar_a_ready(proceso);
         } else {
-            // Caso 2: ya fue suspendido, buscar en SUSP_BLOCK
             proceso = quitar_de_susp_block_por_pid(pid_finalizado);
                 if (proceso != NULL) {
                     cambiar_estado(proceso, ESTADO_SUSP_READY, io->logger);
@@ -167,7 +168,6 @@ static void* hilo_io_listener(void* arg) {
                 }
         }
     }
-
     return NULL;
 }
 
@@ -177,24 +177,28 @@ void inicializar_io_manager() {
 }
 
 void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_log* logger) {
-    t_io_interfaz* io = malloc(sizeof(t_io_interfaz));
-    io->nombre = strdup(nombre);
-    io->tipo = tipo;
-    io->socket_fd = socket_fd;
-    io->logger = logger;
-    memset(&io->req_en_vuelo, 0, sizeof(t_io_request));
+    if(buscar_interfaz_por_tipo(tipo) == NULL) {
+        t_io_interfaz* io = malloc(sizeof(t_io_interfaz));
+        io->nombre = strdup(nombre);
+        io->tipo = tipo;
+        io->socket_fd = socket_fd;
+        io->logger = logger;
+        memset(&io->req_en_vuelo, 0, sizeof(t_io_request));
 
-    pthread_mutex_init(&io->mutex_req, NULL);
+        pthread_mutex_init(&io->mutex_req, NULL);
 
-    pthread_mutex_lock(&s_mutex_interfaces);
+        pthread_mutex_lock(&s_mutex_interfaces);
 
-    list_add(s_interfaces, io);
+        list_add(s_interfaces, io);
 
-    pthread_mutex_unlock(&s_mutex_interfaces);
+        pthread_mutex_unlock(&s_mutex_interfaces);
 
-    crear_hilo(hilo_io_listener, io);
+        crear_hilo(hilo_io_listener, io);
 
-    log_info(logger, "## IO %s (%s) registrada y escuchando", nombre, tipo_io_to_string(tipo));
+        log_info(logger, "## IO %s (%s) registrada y escuchando", nombre, tipo_io_to_string(tipo));
+    } else {
+        log_error(logger, "IO %s de tipo %s ya está registrada", nombre, tipo_io_to_string(tipo));
+    }
 }
 
 void manejar_syscall_io(t_pcb* proceso, t_io_request* req, t_log* logger) {

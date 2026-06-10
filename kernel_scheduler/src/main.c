@@ -10,38 +10,38 @@
 #include <unistd.h>
 #include <stdio.h>
 
-// -- Globales -----------------------------------------
+// ----------------------------------------- Globales -----------------------------------------
 
-t_log* logger;
-t_config* config;
+t_log* logger; //loger del Kernel Scheduler.
+t_config* config; //config del Kernel Scheduler.
 
-int socket_km_notificaciones; // no necesita de un mutex porque solo lo usa escuchar_kernel_memory
+int socket_km_notificaciones; //no necesita de un mutex porque solo lo usa escuchar_kernel_memory.
 int socket_kernel_memory_operaciones;
-pthread_mutex_t mutex_socket_km;
+pthread_mutex_t mutex_socket_km_operaciones;
 
-t_list* p_activos_global;
+t_list* p_activos_global; //lista que contiene todos los procesos "vivos".
 pthread_mutex_t mutex_p_activos;
 
-char* algoritmo;
-char** queues_algoritmos;
+char* algoritmo; //algortimo de planificación de procesos.
+char** queues_algoritmos; //lista de algoritmos de planificación de procesos para cada prioridad (solo si estamos en CMN).
 
-uint32_t proximo_pid = 1; // el 0 lo usa el proceso inicial, por eso inicializa en 1
+uint32_t proximo_pid = 1; //identificador del siguiente proceso por crear. El pid 0 lo usa el proceso inicial, por eso inicializa en 1.
 pthread_mutex_t mutex_pid;
 
-int cant_prioridades = 1; //1 por default, cambia si el algoritmo de planificación es CMN
+int cant_prioridades = 1; //1 por default. Cambia si el algoritmo de planificación es CMN.
 
-uint32_t suspension_timeout;
+uint32_t suspension_timeout; //tiempo máximo (en milisegundos) que puede pasar un proceso en estado BLOCK antes de ser suspendido.
 
-int servidor; //por qué es global? no podría hacerse local del main y pasarse como param a escuchar_conexiones?
+int servidor; // DUDA: Por qué es global? No podría hacerse local del main y pasarse como param a escuchar_conexiones?
 
-bool blue_screen_of_death = false;
+bool blue_screen_of_death = false; //forma de hacer notar que el Kernel Memory notificó corrupción en la memoria.
 
-bool hay_desalojo_cmn = false;
+bool hay_desalojo_cmn = false; //indica que, si estamos usando el algoritmo de planificación de procesos CMN, hay o no desalojo entre procesos. False por default.
 
-// -- Identificación de módulos conectados -------------
+// ------------------------------- Identificar Operación a Realizar -------------------------------
 
 void* atender_cpu(void* arg) {
-    int socket_cpu = *(int*)arg;
+    int socket_cpu = *(int*)arg; //bellissimo.
     free(arg);
 
     log_info(logger, "## CPU %d Conectada", socket_cpu);
@@ -49,22 +49,25 @@ void* atender_cpu(void* arg) {
     agregar_cpu_libre(socket_cpu);
 
     while (1) {
+        //recibo la operación.
         op_code opcode;
         if (recibir_opcode(socket_cpu, &opcode) <= 0) {
             log_warning(logger, "CPU %d desconectada", socket_cpu);
             break;
         }
 
+        //recibo el pid sobre el cual ejecutarla.
         uint32_t pid;
         recibir_uint32(socket_cpu, &pid);
 
+        //con el pid encuentro al proceso.
         t_pcb* proceso = encontrar_proceso_global(pid);
 
         if (proceso == NULL) {
             log_error(logger, "Proceso %d no encontrado", pid);
             break;
         }
-
+        //llamo a la función de manejo propia de la operación.
         switch (opcode) {
             case KS_TICK_PROGRESS_CONTINUE:
                 manejar_tick_progress(socket_cpu, proceso);
@@ -105,9 +108,9 @@ void* atender_cpu(void* arg) {
     }
 }
 
-// -- Hilo servidor — acepta CPUs e IOs -------------------------
+// ------------------------------------- Aceptar CPUs e IOs -------------------------------------
 
-void* escuchar_conexiones(void* arg) {
+void* escuchar_conexiones(void* arg) { // DUDA: No estoy usando el argumento, es correcto?
     while (1) {
         int cliente = esperar_cliente_modulo(logger, servidor, "Kernel Scheduler");
         if (cliente == -1) {
@@ -146,7 +149,7 @@ void* escuchar_conexiones(void* arg) {
     return NULL;
 }
 
-void* escuchar_kernel_memory(void* arg) {
+void* escuchar_kernel_memory(void* arg) { // DUDA: No estoy usando el argumento, es correcto?
     while (1) {
         op_code opcode;
         if (recibir_opcode(socket_km_notificaciones, &opcode) <= 0) {
@@ -174,40 +177,55 @@ void* escuchar_kernel_memory(void* arg) {
 static void inicializar_ks_estructuras() {
     p_activos_global = list_create();   
     pthread_mutex_init(&mutex_pid, NULL);
-    pthread_mutex_init(&mutex_socket_km, NULL);
+    pthread_mutex_init(&mutex_socket_km_operaciones, NULL);
     pthread_mutex_init(&mutex_p_activos, NULL);
 }
 
-//-- Main ---------------------------------------------------------------
+//------------------------------------ MAIN KERNEL SCHEDULER ------------------------------------
 
 int main(int argc, char* argv[]) {
 
     if (argc < 3) {
-        printf("Uso: %s [config] [path_proceso_inicial]\n", argv[0]);
+        printf("Uso: %s [config] [path_proceso_inicial]\n", argv[0]); // DUDA: Raro este string
         return EXIT_FAILURE;
     }
 
-
-    // Config
+    //crear el Config.
     config = config_create(argv[1]);
     if (config == NULL) {
         printf("Error al leer config\n");
         return EXIT_FAILURE;
     }
 
-    // Logger
+    //crear el Logger.
     char* log_level_str = config_get_string_value(config, "LOG_LEVEL");
     t_log_level log_level = log_level_from_string(log_level_str);
     logger = log_create("kernel_scheduler.log", "KERNEL", 1, log_level);
 
-    // Inicializar lo pertinente al ks
+    //inicializar lo pertinente al Kernel Scheduler.
     inicializar_ks_estructuras();
     inicializar_ks_planificador();
     inicializar_ks_mutex_manager();
     inicializar_ks_cpu_manager();
     inicializar_io_manager();
 
-    // Conectar con Kernel Memory
+    //obtener el algoritmo de planificación.
+    algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
+    if(strcmp(algoritmo, "CMN") == 0) {
+        cant_prioridades = 0;
+        queues_algoritmos = config_get_array_value(config, "QUEUES_ALGORITHMS");
+        while (queues_algoritmos[cant_prioridades] != NULL) //clever
+            cant_prioridades++;
+
+        char* preemtion = config_get_string_value(config, "QUEUE_PREEMPTION");
+        if(strcmp(preemtion, "TRUE")== 0)
+            hay_desalojo_cmn = true;
+    }
+
+    //obtener tiempo máximo que puede un proceso estar bloqueado.
+    suspension_timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
+
+    //conectar con Kernel Memory (operaciones y notificaciones).
     char* ip_km = config_get_string_value(config, "IP_KERNEL_MEMORY");
     char* puerto_km = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
 
@@ -237,7 +255,7 @@ int main(int argc, char* argv[]) {
     }
     log_info(logger, "## Conectado al Notificador del Kernel Memory");
 
-    // Iniciar servidor para CPUs e IOs
+    //iniciar servidor para CPUs e IOs.
     char* puerto = config_get_string_value(config, "PUERTO_ESCUCHA");
     servidor = iniciar_servidor_modulo(logger, puerto, "Kernel Scheduler");
     if (servidor == -1) {
@@ -245,27 +263,12 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    // Obtener el algoritmo de planificación
-    algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
-    if(strcmp(algoritmo, "CMN") == 0) {
-        cant_prioridades = 0;
-        queues_algoritmos = config_get_array_value(config, "QUEUES_ALGORITHMS");
-        while (queues_algoritmos[cant_prioridades] != NULL)
-            cant_prioridades++;
-
-        char* preemtion = config_get_string_value(config, "QUEUE_PREEMPTION");
-        if(strcmp(preemtion, "TRUE")== 0)
-            hay_desalojo_cmn = true;
-    }
-
-    suspension_timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
-
-    // Arrancar hilo dispatcher, hilo servidor e hilo notificador
+    //arrancar hilo dispatcher, hilo servidor e hilo notificador.
     crear_hilo(hilo_dispatcher, NULL);
     crear_hilo(escuchar_conexiones, NULL);
     crear_hilo(escuchar_kernel_memory, NULL);
 
-    // Crear proceso inicial PID 0
+    //crear proceso inicial (PID 0) a mano.
     char* path_proceso_inicial = argv[2];
     t_pcb* proceso_inicial = crear_pcb(0, 0);//mmm magic number PROCESO_INICIAL y PRIORIDAD_MAXIMA?
 
@@ -275,14 +278,12 @@ int main(int argc, char* argv[]) {
 
     pthread_mutex_unlock(&mutex_p_activos);
 
-    log_info(logger, "## (0) Se crea el proceso - Estado: NEW"); // raro este string
+    log_info(logger, "## (0) Se crea el proceso - Estado: NEW");
 
-    // Avisar al Kernel Memory que cree el proceso
-
-    pthread_mutex_lock(&mutex_socket_km);
+    pthread_mutex_lock(&mutex_socket_km_operaciones);
 
     enviar_opcode(socket_kernel_memory_operaciones, KM_CREAR_PROCESO);
-    enviar_uint32(socket_kernel_memory_operaciones, 0);                     //mmm magic number PROCESO_INICIAL?
+    enviar_uint32(socket_kernel_memory_operaciones, 0); //mmm magic number PROCESO_INICIAL?
     enviar_string(socket_kernel_memory_operaciones, path_proceso_inicial);
 
     op_code opcode;
@@ -291,12 +292,12 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    pthread_mutex_unlock(&mutex_socket_km);
+    pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
     cambiar_estado(proceso_inicial, ESTADO_READY, logger);
     agregar_a_ready(proceso_inicial);
 
-    // Loop principal — detecta BSOD
+    //loopeo para detectar un eventual BSoD.
     while (1) {
         if (blue_screen_of_death) {
             log_error(logger, "## BLUE SCREEN OF DEATH");
@@ -311,5 +312,5 @@ int main(int argc, char* argv[]) {
     config_destroy(config);
     log_destroy(logger);
 
-    return EXIT_FAILURE; // BSOD, La única forma en la que un KS termina, porque algo sale mal. 
+    return EXIT_FAILURE; //BSOD, La única forma en la que un KS termina, porque algo sale mal. 
 }
