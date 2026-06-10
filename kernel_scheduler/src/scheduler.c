@@ -299,6 +299,9 @@ t_pcb* quitar_de_susp_ready_por_pid(uint32_t pid) {
     }
     pthread_mutex_unlock(&mutex_susp_ready);
 
+    if (resultado != NULL)
+    temporal_destroy(resultado->tiempo_susp);
+
     return resultado;
 }
 
@@ -417,6 +420,9 @@ void intentar_reanudar_proceso() {
         pthread_mutex_unlock(&mutex_socket_km);
 
         if (ack == RESPUESTA_OK) {
+            temporal_destroy(proceso->tiempo_susp);
+            proceso->tiempo_susp = NULL;
+
             if (proceso->estado == ESTADO_SUSP_READY) {
                 cambiar_estado(proceso, ESTADO_READY, logger);
                 agregar_a_ready(proceso);

@@ -125,7 +125,9 @@ void* hilo_dispatcher(void* arg) {
                 guardar_timer(cpu, timer);
             }
         }
-    }   
+    }
+    free(quantum);
+    
     return NULL;
 }
 
