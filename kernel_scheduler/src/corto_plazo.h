@@ -48,4 +48,6 @@ void manejar_fin_quantum(int socket_cpu, t_pcb* proceso);
 
 void marcar_interrupcion(int socket_cpu);
 
+cancelar_timer(int socket_cpu);
+
 #endif

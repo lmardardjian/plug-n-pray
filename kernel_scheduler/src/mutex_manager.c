@@ -2,6 +2,7 @@
 #include "scheduler.h"
 #include "mutex_manager.h"
 #include "utils/conexion.h"
+#include "corto_plazo.h"
 #include <string.h>
 
 extern t_log* logger;

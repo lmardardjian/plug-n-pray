@@ -59,6 +59,7 @@ void inicializar_ks_planificador() {
     lista_exec = list_create();
     inicializar_listas_susp_ready();
     inicializar_listas_susp_block();
+    lista_cpu_proceso = list_create();
 
     //inicializo mutexes.
     pthread_mutex_init(&mutex_ready, NULL);
@@ -66,6 +67,7 @@ void inicializar_ks_planificador() {
     pthread_mutex_init(&mutex_exec, NULL);
     pthread_mutex_init(&mutex_susp_ready, NULL);
     pthread_mutex_init(&mutex_susp_block, NULL);
+    pthread_mutex_init(&mutex_cpu_proceso, NULL);
 
     //inicializo semáforo productor-consumidor.
     sem_init(&sem_procesos_en_ready, 0, 0);

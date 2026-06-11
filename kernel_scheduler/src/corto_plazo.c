@@ -134,7 +134,7 @@ void* hilo_dispatcher(void* arg) {
 
                 //creo un hilo para interrumpir la cpu si el proceso se pasa de tiempo.
                 pthread_t timer;
-                pthread_create(&timer, NULL, hilo_quantum, args);//no podríamos usar crear_hilo?
+                pthread_create(&timer, NULL, hilo_quantum, args);// DUDA: no podríamos usar crear_hilo?
                 pthread_detach(timer);
 
                 //guardo el timer para poder cancelarlo.
@@ -192,7 +192,7 @@ void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso) {
             return;
     }
     cancelar_timer(socket_cpu);
-    // DUDA: Está bien el orden así? manejar_syscall_io antes de agregar_cpu_libre
+    // DUDA: Podría pasarle el socket_cpu a mamejar_syscall_io para que agregue la cpu a la lista de libres.
     manejar_syscall_io(proceso, &req, logger);
     agregar_cpu_libre(socket_cpu);
 }
@@ -343,7 +343,7 @@ static void guardar_timer(int socket_cpu, pthread_t timer) {
     pthread_mutex_unlock(&mutex_timers);
 }
 
-static void cancelar_timer(int socket_cpu) {
+void cancelar_timer(int socket_cpu) {
 
     pthread_mutex_lock(&mutex_timers);
     
