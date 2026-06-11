@@ -87,6 +87,7 @@ typedef struct {
 typedef struct {
     int socket;
     uint32_t tamanio;
+    uint32_t base_fisica;
 } t_memory_stick;
 
 // instrucciones que entiende la cpu
