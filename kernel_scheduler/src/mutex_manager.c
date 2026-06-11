@@ -124,7 +124,7 @@ void mutex_unlock(char* nombre) {
 
 //Handler Lock
 
-void manejar_mutex_lock(int socket_cpu, t_pcb* proceso) {
+void  manejar_syscall_mutex_lock(int socket_cpu, t_pcb* proceso) {
 
     char nombre_mutex[64];  //mmmm magic number
 
@@ -148,7 +148,7 @@ void manejar_mutex_lock(int socket_cpu, t_pcb* proceso) {
 
 //Handler Unlock
 
-void manejar_mutex_unlock(int socket_cpu, t_pcb* proceso) {
+void manejar_syscall_mutex_unlock (int socket_cpu, t_pcb* proceso) {
 
     char nombre_mutex[64]; //mmm magic number
 

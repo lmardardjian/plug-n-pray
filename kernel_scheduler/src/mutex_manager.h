@@ -27,7 +27,7 @@ bool mutex_lock(char* nombre, t_pcb* proceso);
 void mutex_unlock(char* nombre);
 
 // Handlers CPU -> Kernel
-void manejar_mutex_lock(int socket_cpu, t_pcb* proceso);
-void manejar_mutex_unlock(int socket_cpu, t_pcb* proceso);
+void  manejar_syscall_mutex_lock(int socket_cpu, t_pcb* proceso);
+void manejar_syscall_mutex_unlock (int socket_cpu, t_pcb* proceso);
 
 #endif

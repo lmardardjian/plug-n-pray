@@ -4,6 +4,9 @@
 #include "pcb.h"
 #include "utils/conexion.h"
 #include "utils/constantes.h"
+
+extern int socket_kernel_memory_operaciones;
+extern pthread_mutex_t mutex_socket_km_operaciones;
 typedef struct {
     uint32_t  pid;
     tipo_io tipo;
@@ -24,6 +27,7 @@ typedef struct {
 } t_io_interfaz;
 
 void inicializar_io_manager();
+
 void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_log* logger);
 void manejar_syscall_io(t_pcb* proceso, t_io_request* req, t_log* logger);
 

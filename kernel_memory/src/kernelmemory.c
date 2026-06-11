@@ -53,7 +53,6 @@ void crear_proceso(int cliente, t_dictionary* procesos, t_log* logger)
     proceso->pid = pid;
     inicializar_contexto(&(proceso->contexto));   
     proceso->instrucciones = leer_instrucciones(path); 
-    //se comprueba en algún otro lado que instrucciones no sea un puntero a null o habría que hacerlo acá?
 
     char key[20];                   //mmm magic number KEY_SIZE?
     sprintf(key, "%d", pid);
@@ -152,6 +151,8 @@ void responder_mem_read(int cliente, t_log* logger)
     log_info(logger, "MEM_READ mock");
 
     enviar_opcode(cliente, RESPUESTA_OK);
+
+    //si algo falla mandar RESPUESTA_ERROR.
 }
 
 void responder_mem_write(int cliente, t_log* logger)
@@ -170,6 +171,8 @@ void responder_mem_write(int cliente, t_log* logger)
     log_info(logger, "MEM_WRITE mock");
 
     enviar_opcode(cliente, RESPUESTA_OK);
+
+    //si algo falla mandar RESPUESTA_ERROR.
 }
 
 void responder_espacio_libre(int cliente, t_log* logger)

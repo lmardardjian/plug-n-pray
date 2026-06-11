@@ -136,7 +136,6 @@ t_pcb* obtener_siguiente_proceso() {
         }
         else {
             proceso = queue_pop(colas_ready[nivel]);
-            // DUDA: Acá iría un break?
         }
     }
     pthread_mutex_unlock(&mutex_ready);
@@ -243,10 +242,6 @@ void agregar_a_susp_ready(t_pcb* proceso) {
     pthread_mutex_unlock(&mutex_susp_ready);
 }
 
-static t_pcb* quitar_primero_de_susp_ready_nivel(int nivel) { // DUDA: No se usa en ninún lado, sacarla??
-    return sacar_mas_antiguo(listas_susp_ready[nivel]);
-}
-
 t_pcb* quitar_de_susp_ready_por_pid(uint32_t pid) {
 
     pthread_mutex_lock(&mutex_susp_ready);
@@ -342,7 +337,7 @@ t_pcb* quitar_de_susp_block_por_pid(uint32_t pid) {
     pthread_mutex_unlock(&mutex_susp_block);
 
     if (resultado != NULL)
-        temporal_destroy(proceso->tiempo_susp);
+        temporal_destroy(resultado->tiempo_susp);
 
     return resultado;
 }

@@ -4,7 +4,6 @@
 #include <pthread.h>
 #include <commons/temporal.h>
 
-//Enumerador para los estados del proceso
 typedef enum {
     ESTADO_NEW,
     ESTADO_READY,
@@ -14,7 +13,6 @@ typedef enum {
     ESTADO_SUSP_READY,
     ESTADO_SUSP_BLOCK
 } t_estado;
-
 
 typedef struct {
     uint32_t pid; //identificador único.

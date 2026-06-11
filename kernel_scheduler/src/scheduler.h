@@ -10,21 +10,18 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-//Colas y listas
 extern t_queue** colas_ready;
 extern t_list* lista_block;
 extern t_list* lista_exec;
 extern t_list** listas_susp_ready;
 extern t_list** listas_susp_block;
 
-//Mutexes 
 extern pthread_mutex_t mutex_ready;
 extern pthread_mutex_t mutex_block;
 extern pthread_mutex_t mutex_exec;
 extern pthread_mutex_t mutex_susp_ready;
 extern pthread_mutex_t mutex_susp_block;
 
-//Semáforo productor-consumidor de colas_ready
 extern sem_t sem_procesos_en_ready;
 
 extern int socket_kernel_memory_operaciones;
@@ -47,7 +44,6 @@ void agregar_a_block(t_pcb* proceso);
 t_pcb* quitar_de_block(uint32_t pid);
 
 void agregar_a_exec(t_pcb* proceso);
-void registrar_cpu_proceso(int socket_cpu_ejecutando, uint32_t pid);
 void quitar_de_exec(uint32_t pid);
 
 void agregar_a_susp_ready(t_pcb* proceso);
@@ -59,5 +55,6 @@ t_pcb* quitar_de_susp_block_por_pid(uint32_t pid);
 
 void* hilo_suspension(void* arg);
 void intentar_reanudar_proceso();
+void registrar_cpu_proceso(int socket_cpu_ejecutando, uint32_t pid);
 
 #endif

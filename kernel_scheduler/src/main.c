@@ -12,7 +12,7 @@
 
 // ----------------------------------------- Globales -----------------------------------------
 
-t_log* logger; //loger del Kernel Scheduler.
+t_log* logger; //logger del Kernel Scheduler.
 t_config* config; //config del Kernel Scheduler.
 
 int socket_km_notificaciones; //no necesita de un mutex porque solo lo usa escuchar_kernel_memory.
@@ -23,7 +23,7 @@ t_list* p_activos_global; //lista que contiene todos los procesos "vivos".
 pthread_mutex_t mutex_p_activos;
 
 char* algoritmo; //algortimo de planificación de procesos.
-char** queues_algoritmos; //lista de algoritmos de planificación de procesos para cada prioridad (solo si estamos en CMN).
+char** queues_algoritmos; //cola de algoritmos de planificación de procesos para cada prioridad (solo si estamos en CMN).
 
 uint32_t proximo_pid = 1; //identificador del siguiente proceso por crear. El pid 0 lo usa el proceso inicial, por eso inicializa en 1.
 pthread_mutex_t mutex_pid;
@@ -73,7 +73,7 @@ void* atender_cpu(void* arg) {
                 manejar_tick_progress(socket_cpu, proceso);
                 break;
 
-            case KS_FIN_QUANTUM:
+            case KS_FIN_QUANTUM: // DUDA: Este no lo está mandando nadieee.
                 manejar_fin_quantum(socket_cpu, proceso);
                 break;
 
@@ -82,19 +82,19 @@ void* atender_cpu(void* arg) {
                 break;
             
             case KS_MUTEX_CREATE:
-                manejar_mutex_create(socket_cpu, proceso);
+                manejar_syscall_mutex_create(socket_cpu, proceso);
                 break;
 
             case KS_MUTEX_LOCK:
-                manejar_mutex_lock(socket_cpu, proceso);
+                 manejar_syscall_mutex_lock(socket_cpu, proceso);
                 break;
 
             case KS_MUTEX_UNLOCK:
-                manejar_mutex_unlock(socket_cpu, proceso);
+                manejar_syscall_mutex_unlock (socket_cpu, proceso);
                 break;
                 
             case KS_EXIT:
-                manejar_exit(socket_cpu, proceso);
+                manejar_syscall_exit(socket_cpu, proceso);
                 break;
 
             case KS_INIT_PROC: 
