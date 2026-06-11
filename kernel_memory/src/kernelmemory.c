@@ -8,6 +8,8 @@ static int socket_ks_notificaciones = -1;
 static int socket_kernel_scheduler = -1;
 static int socket_ks_operaciones = -1;
 
+static pthread_mutex_t mutex_memory_sticks;
+
 void inicializar_contexto(t_contexto* contexto) {
     contexto->pc = 0;
     contexto->ax = 0;
@@ -186,6 +188,10 @@ void responder_espacio_libre(int cliente, t_log* logger)
     log_info(logger, "Espacio libre enviado");
 }
 
+void inicializar_mutex_ms(){    //DUDA: No me agrada mucho esta función, pero generaba conflicto el exponer el mutex para usarlo en main.
+    pthread_mutex_init(&mutex_memory_sticks, NULL); 
+}
+
 // =========== ATENDER AL CLIENTE - FUNCION ORQUESTADORA =======
 
 void* atender_cliente(void* arg)
@@ -206,7 +212,18 @@ void* atender_cliente(void* arg)
         t_memory_stick* stick = malloc(sizeof(t_memory_stick));
         stick->socket = cliente;
         stick->tamanio = tamanio;
+
+        pthread_mutex_lock(&mutex_memory_sticks);
+        
+        uint32_t base = 0;
+        for (int i = 0; i < list_size(memory_sticks); i++) {
+            t_memory_stick* stick_existente = list_get(memory_sticks, i);
+            base += stick_existente->tamanio;
+        }
+        stick->base_fisica = base;
         list_add(memory_sticks, stick);
+
+        pthread_mutex_unlock(&mutex_memory_sticks);
         
         log_info(logger, "Memory Stick registrado. Tamaño: %u", tamanio);
 

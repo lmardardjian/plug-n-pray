@@ -30,9 +30,11 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
+    inicializar_mutex_ms();
 
     t_list* memory_sticks = list_create();
     t_dictionary* procesos = dictionary_create();
+
     while(1)
     {
         int cliente = esperar_cliente_modulo(logger, servidor, "Kernel Memory");

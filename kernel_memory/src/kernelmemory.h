@@ -6,6 +6,7 @@
 #include <commons/config.h>
 #include <commons/log.h>
 #include <string.h>
+#include <pthread.h>
 
 extern t_log* logger;
 typedef struct {
@@ -30,5 +31,6 @@ void responder_mem_write(int cliente, t_log* logger);
 void responder_mem_read(int cliente, t_log* logger);
 void actualizar_contexto(int cliente, t_dictionary* procesos, t_log* logger);
 void enviar_contexto(int cliente, t_dictionary* procesos, t_log* logger);
+void inicializar_mutex_ms();
 
 #endif
