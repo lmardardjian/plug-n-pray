@@ -77,6 +77,20 @@ bool mutex_lock(char* nombre, t_pcb* proceso) {
     //Mutex ocupado
     queue_push(mutex->bloqueados, proceso);
 
+    // Si el proceso bloqueado tiene mayor prioridad que el dueño (número menor = mayor prioridad)
+    if (proceso->prioridad < mutex->duenio->prioridad) {
+        uint32_t prioridad_nueva = proceso->prioridad;
+        t_pcb* duenio = mutex->duenio;
+    
+        log_info(logger, "## %d Cambio de prioridad: %d - %d", duenio->pid, duenio->prioridad, prioridad_nueva);
+        duenio->prioridad = prioridad_nueva;
+    
+        // Si el dueño está en READY, reposicionarlo en la cola correcta
+        if (duenio->estado == ESTADO_READY) {
+        // sacarlo de su cola actual y meterlo en la nueva
+        }
+    }
+
     pthread_mutex_unlock(&mutex->mutex_interno);
 
     quitar_de_exec(proceso->pid);
