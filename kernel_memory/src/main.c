@@ -4,8 +4,10 @@
 #include "utils/constantes.h"
 #include <commons/collections/dictionary.h>
 #include <sys/socket.h>
+#include <stdlib.h>
 
 t_log* logger;
+t_config* config;
 
 int main(int argc, char* argv[]) {
 
@@ -14,7 +16,7 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    t_config* config = config_create(argv[1]);
+    config = config_create(argv[1]);
     if (config == NULL) {
         printf("Error al leer config\n");
         return EXIT_FAILURE;
@@ -30,10 +32,7 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    inicializar_mutex_ms();
-
-    t_list* memory_sticks = list_create();
-    t_dictionary* procesos = dictionary_create();
+    inicializar_estado_global(config);
 
     while(1)
     {
@@ -46,8 +45,6 @@ int main(int argc, char* argv[]) {
 
         t_args_cliente* args = malloc(sizeof(t_args_cliente));
         args->socket = cliente;
-        args->procesos = procesos;
-        args->memory_sticks = memory_sticks;
         crear_hilo(atender_cliente, args);
     }
 

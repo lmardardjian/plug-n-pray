@@ -21,10 +21,17 @@ typedef enum {
     KM_SUSPENDER_PROCESO,
     KM_REANUDAR_PROCESO,
     KM_BSOD,
+    KM_NOTIF_MEMORIA_LIBRE,       
+    KM_NOTIF_COMPACTAR,  
+    KM_COMPACTACION_OK,          
+    KM_FINALIZAR_PROCESO, 
+    KM_MEM_ALLOC,                
+    KM_MEM_FREE,  
 
     //respuestas
     RESPUESTA_OK,
     RESPUESTA_ERROR,
+    RESPUESTA_NECESITA_COMPACTAR,
 
     // mensajes cpu -> kernel scheduler
     KS_TICK_PROGRESS_CONTINUE,

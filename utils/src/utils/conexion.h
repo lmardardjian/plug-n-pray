@@ -42,4 +42,11 @@ char* instruccion_to_string(tipo_instruccion tipo);
 
 void destruir_tabla_segmentos(t_list* tabla);
 
+/ serialización correcta del contexto con tabla de segmentos
+void enviar_contexto_completo(int conexion, t_contexto* contexto);
+void recibir_contexto_completo(int conexion, t_contexto* contexto);
+
+void enviar_tipo_io(int conexion, tipo_io tipo);
+int recibir_tipo_io(int conexion, tipo_io* tipo);
+
 #endif
