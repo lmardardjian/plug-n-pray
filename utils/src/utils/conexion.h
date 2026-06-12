@@ -16,6 +16,8 @@ void enviar_int(int conexion, int valor);
 int recibir_int(int conexion, int* valor);
 void enviar_uint32(int conexion, uint32_t valor);
 int recibir_uint32(int conexion, uint32_t* valor);
+void enviar_uint8(int conexion, uint8_t valor);
+int recibir_uint8(int conexion, uint8_t* valor);
 void enviar_string(int conexion, char* string);
 int recibir_string(int conexion, char* buffer, int max_size);
 int enviar_buffer(int conexion, void* buffer, uint32_t tamanio);

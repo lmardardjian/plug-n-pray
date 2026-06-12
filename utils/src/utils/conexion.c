@@ -63,6 +63,16 @@ int recibir_uint32(int conexion, uint32_t* valor)
     return recv(conexion, valor, sizeof(uint32_t), MSG_WAITALL);
 }
 
+void enviar_uint8(int conexion, uint8_t valor)
+{
+    send(conexion, &valor, sizeof(uint8_t), 0);
+}
+
+int recibir_uint8(int conexion, uint8_t* valor)
+{
+    return recv(conexion, valor, sizeof(uint8_t), MSG_WAITALL);
+}
+
 void enviar_string(int conexion, char* string)
 {
     uint32_t length = strlen(string) + 1;
