@@ -228,7 +228,7 @@ void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_lo
 
 // ----------------------------- MANEJADOR DE SYSCALL IO -----------------------------
 
-void manejar_syscall_io(t_pcb* proceso, t_io_request* req, t_log* logger) {
+void manejar_syscall_io(t_pcb* proceso, t_io_request* req, int socket_cpu, t_log* logger) {
 
     log_info(logger, "## (%d) - Solicitó syscall: %s", proceso->pid, tipo_io_to_string(req->tipo));
 
@@ -236,6 +236,9 @@ void manejar_syscall_io(t_pcb* proceso, t_io_request* req, t_log* logger) {
     quitar_de_exec(proceso->pid);
     cambiar_estado(proceso, ESTADO_BLOCK, logger);
     agregar_a_block(proceso);
+
+    //libero la cpu en la que estaba ejecutando el proceso.
+    agregar_cpu_libre(socket_cpu);
 
     //busco la interfaz con la que debo trabajar.
     t_io_interfaz* io = buscar_interfaz_por_tipo(req->tipo);

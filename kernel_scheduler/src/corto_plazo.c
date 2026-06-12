@@ -1,6 +1,7 @@
 #include "procesos.h"
 #include "scheduler.h"
 #include "IO_manager.h"
+#include "utils/hilos.h"
 #include "corto_plazo.h"
 #include "mutex_manager.h"
 #include <commons/config.h>
@@ -70,7 +71,7 @@ static int obtener_cpu_libre() {
 
 // ----------------------------- DISPATCHER -----------------------------
 
-void* hilo_dispatcher(void* arg) {
+void* hilo_dispatcher(void* arg) { // DUDA: No estoy usando el argumento, es correcto?
     //creo un array de quantums con tamaño dinámico.
     uint32_t* quantum = malloc(sizeof(uint32_t) * cant_prioridades);
 
@@ -117,9 +118,7 @@ void* hilo_dispatcher(void* arg) {
                 args->quantum_ms = quantum[proceso->prioridad];
 
                 //creo un hilo para interrumpir la cpu si el proceso se pasa de tiempo.
-                pthread_t timer;
-                pthread_create(&timer, NULL, hilo_quantum, args);// DUDA: No podríamos usar crear_hilo?
-                pthread_detach(timer);
+                crear_hilo(hilo_quantum, args);
 
                 //guardo el timer para poder cancelarlo.
                 guardar_timer(cpu, timer);
@@ -133,9 +132,7 @@ void* hilo_dispatcher(void* arg) {
                 args->quantum_ms = quantum[0];
 
                 //creo un hilo para interrumpir la cpu si el proceso se pasa de tiempo.
-                pthread_t timer;
-                pthread_create(&timer, NULL, hilo_quantum, args);// DUDA: no podríamos usar crear_hilo?
-                pthread_detach(timer);
+                crear_hilo(hilo_quantum, args);
 
                 //guardo el timer para poder cancelarlo.
                 guardar_timer(cpu, timer);
@@ -181,20 +178,21 @@ void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso) {
             req.dir_logica = (uint32_t)atoi(param1); //uso param1 como dir donde guardar lo leído.
             req.size = (uint32_t)atoi(param2);       //uso param2 como tamaño de lo que debemos leer.
             break;
+        
+        case INST_MEM_ALLOC:
+            //implementar memory allocation
+            break;
+        
+        case INST_MEM_FREE:
+            //implementar memory free
+            break;
 
         default:
-            // DUDA: Qué sería este default?
-            // No es IO: MUTEX_*, MEM_ALLOC, MEM_FREE
-            log_info(logger, "## (%d) - Solicitó syscall: %s", proceso->pid, instruccion_to_string((tipo_instruccion)tipo_inst));
-            cancelar_timer(socket_cpu);
-            quitar_de_exec(proceso->pid);
-            agregar_cpu_libre(socket_cpu);
-            return;
+            log_error(logger, "## (%d) - Tipo de syscall desconocido: %u", proceso->pid, tipo_inst);
+            break;
     }
     cancelar_timer(socket_cpu);
-    // DUDA: Podría pasarle el socket_cpu a mamejar_syscall_io para que agregue la cpu a la lista de libres.
     manejar_syscall_io(proceso, &req, logger);
-    agregar_cpu_libre(socket_cpu);
 }
 
 void manejar_syscall_mutex_create(int socket_cpu, t_pcb* proceso) {
@@ -208,10 +206,9 @@ void manejar_syscall_mutex_create(int socket_cpu, t_pcb* proceso) {
     recibir_string(socket_cpu, param2, sizeof(param2));
 
     cancelar_timer(socket_cpu);
-    crear_mutex(nombre); 
+    crear_mutex(nombre);
     quitar_de_exec(proceso->pid);
-    // DUDA: Qué onda el comentario de abajo?
-    agregar_cpu_libre(socket_cpu); //para que el dispatcher le reenvíe el PID
+    agregar_cpu_libre(socket_cpu);
 }
 
 void manejar_syscall_exit(int socket_cpu, t_pcb* proceso) {
@@ -306,6 +303,8 @@ void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {
         agregar_a_ready(proceso);
 
         log_info(logger, "## (%d) - Desalojado por fin de quantum", proceso->pid);
+
+        //libero la cpu.
         agregar_cpu_libre(socket_cpu);
 
     } else {

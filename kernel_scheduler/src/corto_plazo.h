@@ -25,7 +25,6 @@ extern int cant_prioridades;
 typedef struct {
     int socket_cpu;
     pthread_t hilo_timer;
-    bool timer_activo; // DUDA: No lo estoy usando en ningún lado.
 } t_cpu_timer;
 
 typedef struct {

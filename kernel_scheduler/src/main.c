@@ -15,8 +15,8 @@
 t_log* logger; //logger del Kernel Scheduler.
 t_config* config; //config del Kernel Scheduler.
 
-int socket_km_notificaciones; //no necesita de un mutex porque solo lo usa escuchar_kernel_memory.
-int socket_kernel_memory_operaciones;
+int socket_km_notificaciones; //socket para recibir notificaciones del KM. No necesita de un mutex porque solo lo usa escuchar_kernel_memory.
+int socket_kernel_memory_operaciones; //socket para mandar operaciones al KM.
 pthread_mutex_t mutex_socket_km_operaciones;
 
 t_list* p_activos_global; //lista que contiene todos los procesos "vivos".
@@ -31,8 +31,6 @@ pthread_mutex_t mutex_pid;
 int cant_prioridades = 1; //1 por default. Cambia si el algoritmo de planificación es CMN.
 
 uint32_t suspension_timeout; //tiempo máximo (en milisegundos) que puede pasar un proceso en estado BLOCK antes de ser suspendido.
-
-int servidor; // DUDA: Por qué es global? No podría hacerse local del main y pasarse como param a escuchar_conexiones?
 
 bool blue_screen_of_death = false; //forma de hacer notar que el Kernel Memory notificó corrupción en la memoria.
 
@@ -110,7 +108,8 @@ void* atender_cpu(void* arg) {
 
 // ------------------------------------- Aceptar CPUs e IOs -------------------------------------
 
-void* escuchar_conexiones(void* arg) { // DUDA: No estoy usando el argumento, es correcto?
+void* escuchar_conexiones(void* arg) {
+    int* servidor = *(int*) arg; //bellisimo.
     while (1) {
         int cliente = esperar_cliente_modulo(logger, servidor, "Kernel Scheduler");
         if (cliente == -1) {
@@ -257,16 +256,16 @@ int main(int argc, char* argv[]) {
 
     //iniciar servidor para CPUs e IOs.
     char* puerto = config_get_string_value(config, "PUERTO_ESCUCHA");
-    servidor = iniciar_servidor_modulo(logger, puerto, "Kernel Scheduler");
+    int servidor = iniciar_servidor_modulo(logger, puerto, "Kernel Scheduler");
     if (servidor == -1) {
         log_error(logger, "Fallo al crear servidor");
         return EXIT_FAILURE;
     }
 
     //arrancar hilo dispatcher, hilo servidor e hilo notificador.
-    crear_hilo(hilo_dispatcher, NULL);
-    crear_hilo(escuchar_conexiones, NULL);
+    crear_hilo(escuchar_conexiones, &servidor);
     crear_hilo(escuchar_kernel_memory, NULL);
+    crear_hilo(hilo_dispatcher, NULL);
 
     //crear proceso inicial (PID 0) a mano.
     char* path_proceso_inicial = argv[2];
