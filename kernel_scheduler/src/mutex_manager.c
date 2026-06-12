@@ -2,9 +2,12 @@
 #include "scheduler.h"
 #include "mutex_manager.h"
 #include "utils/conexion.h"
+#include "corto_plazo.h"
 #include <string.h>
 
+
 extern t_log* logger;
+t_list* lista_mutexes;
 static pthread_mutex_t mutex_lista_mutexes;
 
 void inicializar_ks_mutex_manager() {
@@ -77,6 +80,20 @@ bool mutex_lock(char* nombre, t_pcb* proceso) {
     //Mutex ocupado
     queue_push(mutex->bloqueados, proceso);
 
+    // Si el proceso bloqueado tiene mayor prioridad que el dueño (número menor = mayor prioridad)
+    if (proceso->prioridad < mutex->duenio->prioridad) {
+        uint32_t prioridad_nueva = proceso->prioridad;
+        t_pcb* duenio = mutex->duenio;
+    
+        log_info(logger, "## %d Cambio de prioridad: %d - %d", duenio->pid, duenio->prioridad, prioridad_nueva);
+        duenio->prioridad = prioridad_nueva;
+    
+        // Si el dueño está en READY, reposicionarlo en la cola correcta
+        if (duenio->estado == ESTADO_READY) {
+        // sacarlo de su cola actual y meterlo en la nueva
+        }
+    }
+
     pthread_mutex_unlock(&mutex->mutex_interno);
 
     quitar_de_exec(proceso->pid);
@@ -124,7 +141,7 @@ void mutex_unlock(char* nombre) {
 
 //Handler Lock
 
-void manejar_mutex_lock(int socket_cpu, t_pcb* proceso) {
+void  manejar_syscall_mutex_lock(int socket_cpu, t_pcb* proceso) {
 
     char nombre_mutex[64];  //mmmm magic number
 
@@ -148,7 +165,7 @@ void manejar_mutex_lock(int socket_cpu, t_pcb* proceso) {
 
 //Handler Unlock
 
-void manejar_mutex_unlock(int socket_cpu, t_pcb* proceso) {
+void manejar_syscall_mutex_unlock (int socket_cpu, t_pcb* proceso) {
 
     char nombre_mutex[64]; //mmm magic number
 

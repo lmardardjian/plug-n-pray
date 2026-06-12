@@ -16,14 +16,17 @@ void enviar_int(int conexion, int valor);
 int recibir_int(int conexion, int* valor);
 void enviar_uint32(int conexion, uint32_t valor);
 int recibir_uint32(int conexion, uint32_t* valor);
+void enviar_uint8(int conexion, uint8_t valor);
+int recibir_uint8(int conexion, uint8_t* valor);
 void enviar_string(int conexion, char* string);
 int recibir_string(int conexion, char* buffer, int max_size);
 int enviar_buffer(int conexion, void* buffer, uint32_t tamanio);
 int recibir_buffer(int conexion, void* buffer, uint32_t tamanio);
 
-// contextos
+// contextos y serialización
 void enviar_contexto_serializado(int conexion, t_contexto* contexto);
 void recibir_contexto_serializado(int conexion, t_contexto* contexto);
+void destruir_tabla_segmentos(t_list* tabla);
 
 /// @brief devuelve el id del cliente con el que haga handshake
 /// @param socket_conexion 
@@ -36,5 +39,14 @@ int enviar_opcode(int socket, op_code codigo);
 int recibir_opcode(int socket, op_code* codigo);
 char* tipo_io_to_string(tipo_io tipo);
 char* instruccion_to_string(tipo_instruccion tipo);
+
+void destruir_tabla_segmentos(t_list* tabla);
+
+/ serialización correcta del contexto con tabla de segmentos
+void enviar_contexto_completo(int conexion, t_contexto* contexto);
+void recibir_contexto_completo(int conexion, t_contexto* contexto);
+
+void enviar_tipo_io(int conexion, tipo_io tipo);
+int recibir_tipo_io(int conexion, tipo_io* tipo);
 
 #endif

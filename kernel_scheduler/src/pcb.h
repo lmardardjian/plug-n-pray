@@ -4,7 +4,6 @@
 #include <pthread.h>
 #include <commons/temporal.h>
 
-//Enumerador para los estados del proceso
 typedef enum {
     ESTADO_NEW,
     ESTADO_READY,
@@ -15,14 +14,13 @@ typedef enum {
     ESTADO_SUSP_BLOCK
 } t_estado;
 
-
 typedef struct {
-    uint32_t pid;               // Identificador único
-    t_estado estado;            // Estado actual
-    uint32_t prioridad;
+    uint32_t pid; //identificador único.
+    t_estado estado; //estado actual.
+    t_temporal* tiempo_susp; //estructura inicializada cuando el proceso entra en block. se libera cuando sale de block.
+    pthread_mutex_t mutex_estado; //mutex para proteger el cambio de estado.
     uint32_t prioridad_original;
-    t_temporal* tiempo_susp;    // estructura inicializada cuando el proceso entra en block. se libera cuando sale de block
-    pthread_mutex_t mutex_estado;
+    uint32_t prioridad;
 } t_pcb;
 
 #endif

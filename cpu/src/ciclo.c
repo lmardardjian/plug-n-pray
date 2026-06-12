@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <commons/collections/list.h>
 
 
 int pid_actual = -1; 
@@ -121,6 +122,7 @@ static char* fetch(int fd_memory, uint32_t pc, t_log* logger) {
 static void actualizar_contexto(int fd_memory, t_contexto* ctx) {
     enviar_opcode(fd_memory, KM_ACTUALIZAR_CONTEXTO);
     enviar_uint32(fd_memory, (uint32_t) pid_actual);
+<<<<<<< HEAD
     enviar_contexto_serializado(fd_memory, ctx);
 
     // El Kernel Memory responde con RESPUESTA_OK / RESPUESTA_ERROR.
@@ -128,6 +130,9 @@ static void actualizar_contexto(int fd_memory, t_contexto* ctx) {
     // la próxima lectura (ej: la respuesta a KM_PEDIR_CONTEXTO).
     op_code respuesta;
     recibir_opcode(fd_memory, &respuesta);
+=======
+    enviar_contexto_completo(fd_memory, ctx);
+>>>>>>> b33ea8cf326411a39d5b8b9efe25bbb49fdae280
 }
 
 static void enviar_syscall(int fd_scheduler, t_instruccion inst, op_code opcode) {
@@ -337,6 +342,13 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
 
 void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger) {
     t_contexto ctx;
+
+    ctx.pc = 0;
+    ctx.ax = ctx.bx = ctx.cx = ctx.dx = 0;
+    ctx.eax = ctx.ebx = ctx.ecx = ctx.edx = 0;
+    ctx.si = ctx.di = 0;
+    ctx.tabla_segmentos = list_create();
+
     enviar_opcode(fd_memory, KM_PEDIR_CONTEXTO);
     enviar_uint32(fd_memory, (uint32_t) pid_actual);
 
@@ -346,7 +358,7 @@ void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger) {
         return;
     }
 
-    recibir_contexto_serializado(fd_memory, &ctx);
+    recibir_contexto_completo(fd_memory, &ctx);
 
     int ejecutando = 1;
     while(ejecutando) {

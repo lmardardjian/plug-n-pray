@@ -61,20 +61,18 @@ void atender_lectura(int cliente, t_memory_stick_local* stick, t_log* logger)
 {
     uint32_t direccion;
     uint32_t tamanio;
-
     recibir_uint32(cliente, &direccion);
     recibir_uint32(cliente, &tamanio);
 
     void* buffer = malloc(tamanio);
-
-    if(leer_memoria(stick, direccion, buffer, tamanio) == 0) {
+ 
+    if (leer_memoria(stick, direccion, buffer, tamanio) == 0) {
+        enviar_opcode(cliente, RESPUESTA_OK);      // ← AGREGAR
         enviar_buffer(cliente, buffer, tamanio);
         log_info(logger, "## Lectura de %u bytes", tamanio);
-    }
-    else {
+    } else {
         enviar_opcode(cliente, RESPUESTA_ERROR);
     }
-
     free(buffer);
 }
 

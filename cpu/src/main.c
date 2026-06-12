@@ -61,8 +61,18 @@ int main(int argc, char* argv[]) {
                 continue;
             }
         */
+
+       if (fd_scheduler < 0) {
+            log_error(logger, "No se pudo conectar al Kernel Scheduler");
+            return EXIT_FAILURE;
+        }
+
         uint32_t pid;
-        recibir_uint32(fd_scheduler, &pid);
+
+        if (recibir_uint32(fd_scheduler, &pid) <= 0) {
+            log_error(logger, "Kernel Scheduler desconectado");
+            break;
+        }
 
         pid_actual = (int)pid;
         log_info(logger, "## CPU recibió PID: %d", pid_actual);
