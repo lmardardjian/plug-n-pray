@@ -8,6 +8,12 @@
 #include <string.h>
 #include <unistd.h>
 
+static void guardar_timer(int socket_cpu, pthread_t timer);
+
+static void* hilo_quantum(void* arg);
+
+static bool consumir_interrupcion(int socket_cpu);
+
 //cola de cpus libres.
 static t_queue* cola_cpus_libres;
 static pthread_mutex_t mutex_cpus;

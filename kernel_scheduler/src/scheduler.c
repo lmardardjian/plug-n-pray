@@ -1,5 +1,7 @@
 #include "scheduler.h"
 #include "utils/hilos.h"
+#include <unistd.h>
+#include "utils/conexion.h"
 
 //colas y listas para cada estado.
 t_queue** colas_ready;
@@ -224,7 +226,7 @@ void quitar_de_exec(uint32_t pid) {
         tamanio = list_size(lista_cpu_proceso);
         for (int i = 0; i < tamanio; i++) {
             t_cpu_proceso* proceso_en_cpu = list_get(lista_cpu_proceso, i);
-            if (proceso_en_cpu->pid == proceso->pid) {
+            if (proceso_en_cpu->pid == encontrado->pid) {
                 list_remove(lista_cpu_proceso, i);
                 break;
             }

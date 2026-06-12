@@ -5,6 +5,8 @@
 #include "corto_plazo.h"
 #include <string.h>
 
+t_list* lista_mutexes = NULL;
+
 extern t_log* logger;
 static pthread_mutex_t mutex_lista_mutexes;
 

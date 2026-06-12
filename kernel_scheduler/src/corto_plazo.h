@@ -2,6 +2,7 @@
 #define CORTO_PLAZO_H
 
 #include "pcb.h"
+#include <commons/config.h>
 #include "utils/mensajes.h"
 #include <commons/collections/queue.h>
 #include <semaphore.h>
@@ -47,6 +48,6 @@ void manejar_fin_quantum(int socket_cpu, t_pcb* proceso);
 
 void marcar_interrupcion(int socket_cpu);
 
-cancelar_timer(int socket_cpu);
+void cancelar_timer(int socket_cpu);
 
 #endif
