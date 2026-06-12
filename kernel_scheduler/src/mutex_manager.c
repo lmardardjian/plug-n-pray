@@ -5,9 +5,9 @@
 #include "corto_plazo.h"
 #include <string.h>
 
-t_list* lista_mutexes = NULL;
 
 extern t_log* logger;
+t_list* lista_mutexes;
 static pthread_mutex_t mutex_lista_mutexes;
 
 void inicializar_ks_mutex_manager() {

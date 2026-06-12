@@ -8,12 +8,6 @@
 #include <string.h>
 #include <unistd.h>
 
-static void guardar_timer(int socket_cpu, pthread_t timer);
-
-static void* hilo_quantum(void* arg);
-
-static bool consumir_interrupcion(int socket_cpu);
-
 //cola de cpus libres.
 static t_queue* cola_cpus_libres;
 static pthread_mutex_t mutex_cpus;
@@ -76,6 +70,36 @@ static int obtener_cpu_libre() {
 }
 
 // ----------------------------- DISPATCHER -----------------------------
+
+static void guardar_timer(int socket_cpu, pthread_t timer) {
+
+    pthread_mutex_lock(&mutex_timers);
+
+    //creo y hago uso de una estructura cpu timer.
+    t_cpu_timer* entry = malloc(sizeof(t_cpu_timer));
+    entry->socket_cpu = socket_cpu;
+    entry->hilo_timer = timer;
+    //agrego la estructura a la lista de timers.
+    list_add(lista_timers, entry);
+
+    pthread_mutex_unlock(&mutex_timers);
+}
+
+static void* hilo_quantum(void* arg) {
+    t_args_timer* args = (t_args_timer*) arg;
+    int socket_cpu = args->socket_cpu;
+    uint32_t quantum = args->quantum_ms;
+    free(args);
+
+    //duermo lo especificado por el quantum.
+    usleep(quantum * 1000);
+
+    //si llegamos a acá no se mató al hilo y venció el quantum. Mandamos interrupción a la CPU.
+    log_info(logger, "Quantum vencido, enviando interrupción a CPU %d", socket_cpu);
+    marcar_interrupcion(socket_cpu);
+
+    return NULL;
+}
 
 void* hilo_dispatcher(void* arg) { // DUDA: No estoy usando el argumento, es correcto?
     //creo un array de quantums con tamaño dinámico.
@@ -295,6 +319,27 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operacione
     agregar_a_ready(nuevo);
 }
 
+static bool consumir_interrupcion(int socket_cpu) {
+
+    pthread_mutex_lock(&mutex_interrupciones);
+
+    int tamanio = list_size(cpus_con_interrupcion);
+    for (int i = 0; i < tamanio; i++) {
+        int* s = list_get(cpus_con_interrupcion, i);
+        if (*s == socket_cpu) {
+            list_remove(cpus_con_interrupcion, i);
+            free(s);
+
+            pthread_mutex_unlock(&mutex_interrupciones);
+
+            return true;
+        }
+    }
+    pthread_mutex_unlock(&mutex_interrupciones);
+
+    return false;
+}
+
 void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {
 
     //me fijo si hay alguna interrupción por acatar.
@@ -334,20 +379,6 @@ void manejar_fin_quantum(int socket_cpu, t_pcb* proceso) {
 
 }
 
-static void guardar_timer(int socket_cpu, pthread_t timer) {
-
-    pthread_mutex_lock(&mutex_timers);
-
-    //creo y hago uso de una estructura cpu timer.
-    t_cpu_timer* entry = malloc(sizeof(t_cpu_timer));
-    entry->socket_cpu = socket_cpu;
-    entry->hilo_timer = timer;
-    //agrego la estructura a la lista de timers.
-    list_add(lista_timers, entry);
-
-    pthread_mutex_unlock(&mutex_timers);
-}
-
 void cancelar_timer(int socket_cpu) {
 
     pthread_mutex_lock(&mutex_timers);
@@ -366,22 +397,6 @@ void cancelar_timer(int socket_cpu) {
     pthread_mutex_unlock(&mutex_timers);
 }
 
-static void* hilo_quantum(void* arg) {
-    t_args_timer* args = (t_args_timer*) arg;
-    int socket_cpu = args->socket_cpu;
-    uint32_t quantum = args->quantum_ms;
-    free(args);
-
-    //duermo lo especificado por el quantum.
-    usleep(quantum * 1000);
-
-    //si llegamos a acá no se mató al hilo y venció el quantum. Mandamos interrupción a la CPU.
-    log_info(logger, "Quantum vencido, enviando interrupción a CPU %d", socket_cpu);
-    marcar_interrupcion(socket_cpu);
-
-    return NULL;
-}
-
 void marcar_interrupcion(int socket_cpu) {
 
     pthread_mutex_lock(&mutex_interrupciones);
@@ -392,25 +407,4 @@ void marcar_interrupcion(int socket_cpu) {
     list_add(cpus_con_interrupcion, s);
 
     pthread_mutex_unlock(&mutex_interrupciones);
-}
-
-static bool consumir_interrupcion(int socket_cpu) {
-
-    pthread_mutex_lock(&mutex_interrupciones);
-
-    int tamanio = list_size(cpus_con_interrupcion);
-    for (int i = 0; i < tamanio; i++) {
-        int* s = list_get(cpus_con_interrupcion, i);
-        if (*s == socket_cpu) {
-            list_remove(cpus_con_interrupcion, i);
-            free(s);
-
-            pthread_mutex_unlock(&mutex_interrupciones);
-
-            return true;
-        }
-    }
-    pthread_mutex_unlock(&mutex_interrupciones);
-
-    return false;
 }
