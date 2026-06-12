@@ -23,9 +23,10 @@ int recibir_string(int conexion, char* buffer, int max_size);
 int enviar_buffer(int conexion, void* buffer, uint32_t tamanio);
 int recibir_buffer(int conexion, void* buffer, uint32_t tamanio);
 
-// contextos
+// contextos y serialización
 void enviar_contexto_serializado(int conexion, t_contexto* contexto);
 void recibir_contexto_serializado(int conexion, t_contexto* contexto);
+void destruir_tabla_segmentos(t_list* tabla);
 
 /// @brief devuelve el id del cliente con el que haga handshake
 /// @param socket_conexion 
@@ -38,5 +39,7 @@ int enviar_opcode(int socket, op_code codigo);
 int recibir_opcode(int socket, op_code* codigo);
 char* tipo_io_to_string(tipo_io tipo);
 char* instruccion_to_string(tipo_instruccion tipo);
+
+void destruir_tabla_segmentos(t_list* tabla);
 
 #endif
