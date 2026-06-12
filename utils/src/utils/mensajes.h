@@ -97,6 +97,10 @@ typedef enum {
     INST_SUB,
     INST_JNZ,
 
+    INST_MOV_IN,
+    INST_MOV_OUT,
+    INST_COPY_MEM,
+
     INST_MUTEX_CREATE,
     INST_MUTEX_LOCK,
     INST_MUTEX_UNLOCK,

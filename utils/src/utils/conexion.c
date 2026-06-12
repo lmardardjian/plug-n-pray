@@ -263,6 +263,12 @@ char* instruccion_to_string(tipo_instruccion tipo) {
             return "SUB";
         case INST_JNZ:
             return "JNZ";
+        case INST_MOV_IN:
+            return "MOV_IN";
+        case INST_MOV_OUT:
+            return "MOV_OUT";
+        case INST_COPY_MEM:
+            return "COPY_MEM";
         case INST_MUTEX_CREATE:
             return "MUTEX_CREATE";
         case INST_MUTEX_LOCK:

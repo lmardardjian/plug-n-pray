@@ -8,6 +8,10 @@
 // (global para poder usarlo en logs desde cualquier lado)
 extern int pid_actual;
 
+// Tamaño máximo de segmento (SEGMENT_MAX_SIZE), leído del config.
+// Lo necesita la MMU para traducir direcciones lógicas a físicas.
+extern uint32_t tam_max_segmento;
+
 // Funciones principales
 void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger);
 

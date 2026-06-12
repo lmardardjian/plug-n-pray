@@ -30,6 +30,10 @@ int main(int argc, char* argv[]) {
 
     t_log* logger = log_create(nombre_log, "CPU", true, LOG_LEVEL_INFO);
 
+    // SEGMENT_MAX_SIZE: necesario para la MMU (debe coincidir con el
+    // configurado en el Kernel Memory)
+    tam_max_segmento = (uint32_t)config_get_int_value(config, "SEGMENT_MAX_SIZE");
+
     // KERNEL SCHEDULER
     char* ip_scheduler = config_get_string_value(config, "IP_KERNEL_SCHEDULER");
     char* puerto_scheduler = config_get_string_value(config, "PUERTO_KERNEL_SCHEDULER");

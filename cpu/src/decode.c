@@ -15,6 +15,9 @@ t_instruccion decode(char* texto) {
     else if (strcasecmp(nombre, "SUM") == 0) inst.tipo = INST_SUM;
     else if (strcasecmp(nombre, "SUB") == 0) inst.tipo = INST_SUB;
     else if (strcasecmp(nombre, "JNZ") == 0) inst.tipo = INST_JNZ;
+    else if (strcasecmp(nombre, "MOV_IN") == 0) inst.tipo = INST_MOV_IN;
+    else if (strcasecmp(nombre, "MOV_OUT") == 0) inst.tipo = INST_MOV_OUT;
+    else if (strcasecmp(nombre, "COPY_MEM") == 0) inst.tipo = INST_COPY_MEM;
     else if (strcasecmp(nombre, "MUTEX_CREATE") == 0) inst.tipo = INST_MUTEX_CREATE;
     else if (strcasecmp(nombre, "MUTEX_LOCK") == 0) inst.tipo = INST_MUTEX_LOCK;
     else if (strcasecmp(nombre, "MUTEX_UNLOCK") == 0) inst.tipo = INST_MUTEX_UNLOCK;
