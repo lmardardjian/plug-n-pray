@@ -249,6 +249,7 @@ void manejar_syscall_exit(int socket_cpu, t_pcb* proceso) {
     recibir_uint32(socket_cpu, &tipo_inst);
     recibir_string(socket_cpu, param1, sizeof(param1));
     recibir_string(socket_cpu, param2, sizeof(param2));
+    // DUDA: Cuando se da un segmentation fault el kernel memory manda el opcode de KS_EXIT, cómo cambia eso la implementación de esta función?
     
     //cancelo el timer de la cpu porque nunca podría terminar de usarse un proceso muerto.
     cancelar_timer(socket_cpu);

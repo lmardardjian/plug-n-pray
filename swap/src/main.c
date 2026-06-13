@@ -6,6 +6,8 @@
 #include <string.h>
 #include <sys/socket.h>
 
+// DUDA: Falta implementar el SWAP
+
 int main(int argc, char* argv[]) {
     // si no hay argumento
     if (argc < 2) {
