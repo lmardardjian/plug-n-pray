@@ -137,8 +137,10 @@ void recibir_contexto_serializado(int conexion, t_contexto* contexto)
     uint32_t cantidad;
     recibir_uint32(conexion, &cantidad);
 
+    destruir_tabla_segmentos(contexto->tabla_segmentos);
     contexto->tabla_segmentos = list_create();
-    for (int i = 0; i < cantidad; i++) {
+
+    for (uint32_t i = 0; i < cantidad; i++) {
         t_segmento* seg = malloc(sizeof(t_segmento));
         recibir_uint32(conexion, &seg->id_segmento);
         recibir_uint32(conexion, &seg->base);
@@ -170,56 +172,6 @@ int recibir_mensaje(int conexion, char* buffer, int size, t_log* logger) {
     
 
     return bytes;
-}
-
-void enviar_contexto_completo(int conexion, t_contexto* contexto)
-{
-    enviar_uint32(conexion, contexto->pc);
-    send(conexion, &contexto->ax,  sizeof(uint8_t),  0);
-    send(conexion, &contexto->bx,  sizeof(uint8_t),  0);
-    send(conexion, &contexto->cx,  sizeof(uint8_t),  0);
-    send(conexion, &contexto->dx,  sizeof(uint8_t),  0);
-    enviar_uint32(conexion, contexto->eax);
-    enviar_uint32(conexion, contexto->ebx);
-    enviar_uint32(conexion, contexto->ecx);
-    enviar_uint32(conexion, contexto->edx);
-    enviar_uint32(conexion, contexto->si);
-    enviar_uint32(conexion, contexto->di);
-
-    uint32_t cantidad = (uint32_t)list_size(contexto->tabla_segmentos);
-    enviar_uint32(conexion, cantidad);
-    for (uint32_t i = 0; i < cantidad; i++) {
-        t_segmento* s = list_get(contexto->tabla_segmentos, i);
-        enviar_uint32(conexion, s->id_segmento);
-        enviar_uint32(conexion, s->base);
-        enviar_uint32(conexion, s->limite);
-    }
-}
-
-void recibir_contexto_completo(int conexion, t_contexto* contexto)
-{
-    recibir_uint32(conexion, &contexto->pc);
-    recv(conexion, &contexto->ax,  sizeof(uint8_t),  MSG_WAITALL);
-    recv(conexion, &contexto->bx,  sizeof(uint8_t),  MSG_WAITALL);
-    recv(conexion, &contexto->cx,  sizeof(uint8_t),  MSG_WAITALL);
-    recv(conexion, &contexto->dx,  sizeof(uint8_t),  MSG_WAITALL);
-    recibir_uint32(conexion, &contexto->eax);
-    recibir_uint32(conexion, &contexto->ebx);
-    recibir_uint32(conexion, &contexto->ecx);
-    recibir_uint32(conexion, &contexto->edx);
-    recibir_uint32(conexion, &contexto->si);
-    recibir_uint32(conexion, &contexto->di);
-
-    uint32_t cantidad;
-    recibir_uint32(conexion, &cantidad);
-
-    for (uint32_t i = 0; i < cantidad; i++) {
-        t_segmento* s = malloc(sizeof(t_segmento));
-        recibir_uint32(conexion, &s->id_segmento);
-        recibir_uint32(conexion, &s->base);
-        recibir_uint32(conexion, &s->limite);
-        list_add(contexto->tabla_segmentos, s);
-    }
 }
 
 void enviar_int(int conexion, int valor)
