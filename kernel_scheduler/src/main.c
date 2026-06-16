@@ -25,8 +25,6 @@ pthread_mutex_t mutex_p_activos;
 uint32_t proximo_pid = 1; //identificador del siguiente proceso por crear. El pid 0 lo usa el proceso inicial, por eso inicializa en 1.
 pthread_mutex_t mutex_pid;
 
-bool compactando = false; //forma de hacer notar que el Kernel Memory pidió desalojar los procesos de las cpus para compactar la memoria.
-pthread_mutex_t mutex_compactando;
 sem_t sem_compactacion; //semáforo productor-consumidor del hilo dispatcher para que no mande procesos a cpus mientas estoy compactando.
 
 bool desalojo_por_compactacion = false;
@@ -39,7 +37,7 @@ int cant_prioridades = 1; //1 por default. Cambia si el algoritmo de planificaci
 
 uint32_t suspension_timeout; //tiempo máximo (en milisegundos) que puede pasar un proceso en estado BLOCK antes de ser suspendido.
 
-bool blue_screen_of_death = false; //forma de hacer notar que el Kernel Memory notificó corrupción en la memoria.
+sem_t sem_bsod; //forma de hacer notar que el Kernel Memory notificó corrupción en la memoria.
 
 bool hay_desalojo_cmn = false; //indica que, si estamos usando el algoritmo de planificación de procesos CMN, hay o no desalojo entre procesos. False por default.
 
@@ -164,14 +162,14 @@ void* escuchar_kernel_memory(void* arg) {
         op_code opcode;
         if (recibir_opcode(socket_km_notificaciones, &opcode) <= 0) {
             log_error(logger, "Kernel Memory desconectado");
-            blue_screen_of_death = true;
+            sem_post(&sem_bsod);
             break;
         }
 
         switch (opcode) {
             case KM_BSOD:
                 log_error(logger, "## Kernel Memory reportó corrupción de memoria");
-                blue_screen_of_death = true;
+                sem_post(&sem_bsod);
                 break;
 
             case KM_NOTIF_MEMORIA_LIBRE:
@@ -222,8 +220,7 @@ void* escuchar_kernel_memory(void* arg) {
 
                 sem_post(&sem_compactacion);
 
-                break;
-            //acá agregar case para si km notifica que hay memoria disponible por compactación o por nuevo memory stick    
+                break;   
             
             default:
                 log_warning(logger, "Opcode inesperado de KM: %d", opcode);
@@ -238,10 +235,11 @@ static void inicializar_ks_estructuras() {
 
     pthread_mutex_init(&mutex_pid, NULL);
     pthread_mutex_init(&mutex_p_activos, NULL);
-    pthread_mutex_init(&mutex_compactando, NULL);
+    pthread_mutex_init(&mutex_desalojo_compactacion, NULL);
     pthread_mutex_init(&mutex_socket_km_operaciones, NULL);
 
     sem_init(&sem_compactacion, 0, 1);
+    sem_init(&sem_bsod, 0, 0);
 }
 
 //------------------------------------ MAIN KERNEL SCHEDULER ------------------------------------
@@ -359,16 +357,11 @@ int main(int argc, char* argv[]) {
 
     cambiar_estado(proceso_inicial, ESTADO_READY, logger);
     agregar_a_ready(proceso_inicial);
-
-    //loopeo para detectar un eventual BSoD.
-    while (1) {
-        if (blue_screen_of_death) {
-            log_error(logger, "## BLUE SCREEN OF DEATH");
-            destruir_todos_global();
-            break;
-        }
-        sleep(1); // DUDA: No podríamos usar un semáforo productor-consumidor para esto en lugar de hacer espera activa?
-    }
+    
+    sem_wait(&sem_bsod);
+    
+    log_error(logger, "## BLUE SCREEN OF DEATH");
+    destruir_todos_global();
 
     cerrar_conexion(socket_kernel_memory_operaciones, logger);
     cerrar_conexion(servidor, logger);

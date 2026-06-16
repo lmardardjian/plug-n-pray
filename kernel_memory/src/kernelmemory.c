@@ -474,7 +474,7 @@ void op_enviar_contexto(int cliente)
         return;
     }
     enviar_opcode(cliente, RESPUESTA_OK);
-    enviar_contexto_completo(cliente, &proc->contexto);
+    enviar_contexto_completo(cliente, &proc->contexto); //DUDA: No está declarado, código viejo?
     pthread_mutex_unlock(&g_mutex_procesos);
 
     log_info(logger, "## Contexto enviado PID %u", pid);

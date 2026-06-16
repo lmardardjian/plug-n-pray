@@ -17,7 +17,7 @@ typedef enum {
     KM_ACTUALIZAR_CONTEXTO,
     KM_MEM_READ,
     KM_MEM_WRITE,
-    KM_ESPACIO_LIBRE,
+    KM_ESPACIO_LIBRE, //DUDA: No se usa, código viejo?
     KM_SUSPENDER_PROCESO,
     KM_REANUDAR_PROCESO,
     KM_BSOD,

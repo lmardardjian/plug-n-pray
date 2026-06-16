@@ -17,11 +17,9 @@ extern pthread_mutex_t mutex_socket_km_operaciones;
 extern uint32_t proximo_pid;
 extern pthread_mutex_t mutex_pid;
 
-extern bool compactando;
-extern pthread_mutex_t mutex_compactando;
 extern sem_t sem_compactacion;
 
-bool desalojo_por_compactacion = false;
+bool desalojo_por_compactacion;
 pthread_mutex_t mutex_desalojo_compactacion;
 
 extern char* algoritmo;

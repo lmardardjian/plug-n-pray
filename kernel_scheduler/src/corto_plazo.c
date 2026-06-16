@@ -184,6 +184,92 @@ void* hilo_dispatcher(void* arg) {
 
 // ----------------------------- MANEJADOR DE SYSCALLS -----------------------------
 
+static void recrear_timer(int socket_cpu, t_pcb* proceso) {
+    if (strcmp(algoritmo, "RR") == 0) {
+        t_args_timer* args = malloc(sizeof(t_args_timer));
+        args->socket_cpu   = socket_cpu;
+        args->quantum_ms   = config_get_int_value(config, "RR_QUANTUM");
+
+        pthread_t timer;
+        pthread_create(&timer, NULL, hilo_quantum, args);
+        pthread_detach(timer);
+        guardar_timer(socket_cpu, timer);
+
+    } else if (strcmp(algoritmo, "CMN") == 0) {
+        if (strcmp(queues_algoritmos[proceso->prioridad], "RR") == 0) {
+            t_args_timer* args = malloc(sizeof(t_args_timer));
+            args->socket_cpu   = socket_cpu;
+            args->quantum_ms   = config_get_int_value(config, "RR_QUANTUM");
+
+            pthread_t timer;
+            pthread_create(&timer, NULL, hilo_quantum, args);
+            pthread_detach(timer);
+            guardar_timer(socket_cpu, timer);
+        }
+    }
+}
+
+static void ejecutar_compactacion() {
+
+    sem_wait(&sem_compactacion);
+
+    pthread_mutex_lock(&mutex_desalojo_compactacion);
+    
+    desalojo_por_compactacion = true;
+
+    pthread_mutex_unlock(&mutex_desalojo_compactacion);
+
+    pthread_mutex_lock(&mutex_exec);
+
+    for (int i = 0; i < list_size(lista_exec); i++) {
+        t_pcb* en_exec = list_get(lista_exec, i);
+        int socket_cpu_exec = obtener_socket_cpu_de(en_exec->pid);
+        if (socket_cpu_exec != -1)
+            marcar_interrupcion(socket_cpu_exec);
+    }
+    pthread_mutex_unlock(&mutex_exec);
+
+    pthread_mutex_lock(&mutex_socket_km_operaciones);
+
+    enviar_opcode(socket_kernel_memory_operaciones, KM_COMPACTACION_OK);
+    op_code ack;
+    recibir_opcode(socket_kernel_memory_operaciones, &ack);
+
+    pthread_mutex_unlock(&mutex_socket_km_operaciones);
+
+    if (ack != RESPUESTA_OK)
+        log_error(logger, "Error en compactacion");
+
+    pthread_mutex_lock(&mutex_desalojo_compactacion);
+    
+    desalojo_por_compactacion = false;
+
+    pthread_mutex_unlock(&mutex_desalojo_compactacion);
+
+    sem_post(&sem_compactacion);
+}
+
+static bool consumir_interrupcion(int socket_cpu) {
+
+    pthread_mutex_lock(&mutex_interrupciones);
+
+    int tamanio = list_size(cpus_con_interrupcion);
+    for (int i = 0; i < tamanio; i++) {
+        int* s = list_get(cpus_con_interrupcion, i);
+        if (*s == socket_cpu) {
+            list_remove(cpus_con_interrupcion, i);
+            free(s);
+
+            pthread_mutex_unlock(&mutex_interrupciones);
+
+            return true;
+        }
+    }
+    pthread_mutex_unlock(&mutex_interrupciones);
+
+    return false;
+}
+
 void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso) {
     //creo y hago uso de las variables necesarias para recibir los parámetros de la syscall.
     uint32_t tipo_inst;
@@ -235,39 +321,14 @@ void manejar_syscall_mutex_create(int socket_cpu, t_pcb* proceso) {
     recibir_string(socket_cpu, param2, sizeof(param2));
 
     log_info(logger, "## (%d) - Solicitó syscall: MUTEX_CREATE", proceso->pid);
-
+    //cancelo el timer de la cpu que alojaba al proceso.
     cancelar_timer(socket_cpu);
+
     crear_mutex(nombre);
-    quitar_de_exec(proceso->pid);
-    agregar_cpu_libre(socket_cpu);
-}
-
-static void ejecutar_compactacion() {
-
-    sem_wait(&sem_compactacion);
-
-    pthread_mutex_lock(&mutex_exec);
-
-    for (int i = 0; i < list_size(lista_exec); i++) {
-        t_pcb* en_exec = list_get(lista_exec, i);
-        int socket_cpu_exec = obtener_socket_cpu_de(en_exec->pid);
-        if (socket_cpu_exec != -1)
-            marcar_interrupcion(socket_cpu_exec);
-    }
-    pthread_mutex_unlock(&mutex_exec);
-
-    pthread_mutex_lock(&mutex_socket_km_operaciones);
-
-    enviar_opcode(socket_kernel_memory_operaciones, KM_COMPACTACION_OK);
-    op_code ack;
-    recibir_opcode(socket_kernel_memory_operaciones, &ack);
-
-    pthread_mutex_unlock(&mutex_socket_km_operaciones);
-
-    if (ack != RESPUESTA_OK)
-        log_error(logger, "Error en compactacion");
-
-    sem_post(&sem_compactacion);
+    //recreo el timer de la cpu que va a volver a alojar al proceso.
+    recrear_timer(socket_cpu, proceso);
+    //una vez termino, el proceso vuelve a la cpu en la que estaba previamente.
+    enviar_uint32(socket_cpu, proceso->pid);
 }
 
 void manejar_syscall_mem_alloc(int socket_cpu, t_pcb* proceso) {
@@ -299,43 +360,28 @@ void manejar_syscall_mem_alloc(int socket_cpu, t_pcb* proceso) {
     op_code ack;
     recibir_opcode(socket_kernel_memory_operaciones, &ack);
 
+    pthread_mutex_unlock(&mutex_socket_km_operaciones);
+
+    //el KM notificó que hay memoria pero no contigua. Desalojo las CPUs, compacto y reintento.
     if (ack == RESPUESTA_NECESITA_COMPACTAR) {
         ejecutar_compactacion();
+
+        pthread_mutex_lock(&mutex_socket_km_operaciones);
 
         enviar_opcode(socket_kernel_memory_operaciones, KM_MEM_ALLOC);
         enviar_uint32(socket_kernel_memory_operaciones, proceso->pid);
         enviar_uint32(socket_kernel_memory_operaciones, id_segmento);
         enviar_uint32(socket_kernel_memory_operaciones, tamanio);
         recibir_opcode(socket_kernel_memory_operaciones, &ack);
+
+        pthread_mutex_unlock(&mutex_socket_km_operaciones);
     }
-    pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
     if (ack != RESPUESTA_OK)
         log_error(logger, "## (%d) MEM_ALLOC falló", proceso->pid);
 
-    //recreo timer si el algoritmo es RR.
-    if (strcmp(algoritmo, "RR") == 0) {
-        t_args_timer* args = malloc(sizeof(t_args_timer));
-        args->socket_cpu = socket_cpu;
-        args->quantum_ms = config_get_int_value(config, "RR_QUANTUM");
-
-        pthread_t timer;
-        pthread_create(&timer, NULL, hilo_quantum, args);
-        pthread_detach(timer);
-        guardar_timer(socket_cpu, timer);
-
-    } else if (strcmp(algoritmo, "CMN") == 0) {
-        if (strcmp(queues_algoritmos[proceso->prioridad], "RR") == 0) {
-            t_args_timer* args = malloc(sizeof(t_args_timer));
-            args->socket_cpu = socket_cpu;
-            args->quantum_ms = config_get_int_value(config, "RR_QUANTUM");
-
-            pthread_t timer;
-            pthread_create(&timer, NULL, hilo_quantum, args);
-            pthread_detach(timer);
-            guardar_timer(socket_cpu, timer);
-        }
-    }
+    //recreo el timer de la cpu que va a volver a alojar al proceso.
+    recrear_timer(socket_cpu, proceso);
     //una vez termino, el proceso vuelve a la cpu en la que estaba previamente.
     enviar_uint32(socket_cpu, proceso->pid);
 }
@@ -372,29 +418,8 @@ void manejar_syscall_mem_free(int socket_cpu, t_pcb* proceso) {
     if (ack != RESPUESTA_OK)
         log_error(logger, "## (%d) MEM_FREE falló para segmento %u", proceso->pid, id_segmento);
 
-    //recreo timer si el algoritmo es RR.
-    if (strcmp(algoritmo, "RR") == 0) {
-        t_args_timer* args = malloc(sizeof(t_args_timer));
-        args->socket_cpu = socket_cpu;
-        args->quantum_ms = config_get_int_value(config, "RR_QUANTUM");
-
-        pthread_t timer;
-        pthread_create(&timer, NULL, hilo_quantum, args);
-        pthread_detach(timer);
-        guardar_timer(socket_cpu, timer);
-
-    } else if (strcmp(algoritmo, "CMN") == 0) {
-        if (strcmp(queues_algoritmos[proceso->prioridad], "RR") == 0) {
-            t_args_timer* args = malloc(sizeof(t_args_timer));
-            args->socket_cpu = socket_cpu;
-            args->quantum_ms = config_get_int_value(config, "RR_QUANTUM");
-
-            pthread_t timer;
-            pthread_create(&timer, NULL, hilo_quantum, args);
-            pthread_detach(timer);
-            guardar_timer(socket_cpu, timer);
-        }
-    }
+    //recreo el timer de la cpu que va a volver a alojar al proceso.
+    recrear_timer(socket_cpu, proceso);
     //una vez termino, el proceso vuelve a la cpu en la que estaba previamente.
     enviar_uint32(socket_cpu, proceso->pid);
 }
@@ -489,27 +514,6 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operacione
     //una vez hecho todo cambio el estado del proceso a ready y lo agrego a la cola que le corresponda.
     cambiar_estado(nuevo, ESTADO_READY, logger);
     agregar_a_ready(nuevo);
-}
-
-static bool consumir_interrupcion(int socket_cpu) {
-
-    pthread_mutex_lock(&mutex_interrupciones);
-
-    int tamanio = list_size(cpus_con_interrupcion);
-    for (int i = 0; i < tamanio; i++) {
-        int* s = list_get(cpus_con_interrupcion, i);
-        if (*s == socket_cpu) {
-            list_remove(cpus_con_interrupcion, i);
-            free(s);
-
-            pthread_mutex_unlock(&mutex_interrupciones);
-
-            return true;
-        }
-    }
-    pthread_mutex_unlock(&mutex_interrupciones);
-
-    return false;
 }
 
 void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {

@@ -40,8 +40,6 @@ int recibir_opcode(int socket, op_code* codigo);
 char* tipo_io_to_string(tipo_io tipo);
 char* instruccion_to_string(tipo_instruccion tipo);
 
-void destruir_tabla_segmentos(t_list* tabla);
-
 void enviar_tipo_io(int conexion, tipo_io tipo);
 int recibir_tipo_io(int conexion, tipo_io* tipo);
 

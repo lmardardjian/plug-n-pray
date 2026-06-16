@@ -383,8 +383,8 @@ void* hilo_suspension(void* arg) {
     usleep(suspension_timeout * 1000);
 
     if (proceso->estado != ESTADO_BLOCK)
+        //el listener ya lo movió a READY. No hacer nada.
         return NULL;
-    //el listener ya lo movió a READY. No hacer nada.
 
     //todavía en BLOCK. Suspender.
     quitar_de_block(proceso->pid);
