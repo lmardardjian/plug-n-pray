@@ -11,11 +11,18 @@
 extern t_log* logger;
 extern t_config* config;
 
+extern int socket_kernel_memory_operaciones;
+extern pthread_mutex_t mutex_socket_km_operaciones;
+
 extern uint32_t proximo_pid;
 extern pthread_mutex_t mutex_pid;
 
-extern pthread_mutex_t mutex_socket_km_operaciones;
-extern int socket_kernel_memory_operaciones;
+extern bool compactando;
+extern pthread_mutex_t mutex_compactando;
+extern sem_t sem_compactacion;
+
+bool desalojo_por_compactacion = false;
+pthread_mutex_t mutex_desalojo_compactacion;
 
 extern char* algoritmo;
 extern char** queues_algoritmos;
@@ -39,12 +46,13 @@ void agregar_cpu_libre(int socket_cpu);
 
 void* hilo_dispatcher(void* arg);
 
-void manejar_syscall_mutex_create(int socket_cpu, t_pcb* proceso); 
+void manejar_tick_progress(int socket_cpu, t_pcb* proceso);
 void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso);
+void manejar_syscall_mutex_create(int socket_cpu, t_pcb* proceso);
+void manejar_syscall_mem_alloc(int socket_cpu, t_pcb* proceso);
+void manejar_syscall_mem_free(int socket_cpu, t_pcb* proceso);
 void manejar_syscall_exit(int socket_cpu, t_pcb* proceso);
 void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operaciones);
-void manejar_tick_progress(int socket_cpu, t_pcb* proceso);
-void manejar_fin_quantum(int socket_cpu, t_pcb* proceso);
 
 void marcar_interrupcion(int socket_cpu);
 

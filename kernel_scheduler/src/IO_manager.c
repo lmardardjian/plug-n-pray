@@ -68,28 +68,23 @@ static void enviar_a_io(t_io_interfaz* io, t_io_request* req) {
 
 // ----------------------------- LECTURA/ESCRITURA IO -----------------------------
 
-static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t size, t_log* logger) {
+static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_fisica, uint32_t size, t_log* logger) {
 
     pthread_mutex_lock(&mutex_socket_km_operaciones);
 
     enviar_opcode(socket_kernel_memory_operaciones, KM_MEM_READ);
+    enviar_uint32(socket_kernel_memory_operaciones, pid);
+    enviar_uint32(socket_kernel_memory_operaciones, dir_fisica);
+    enviar_uint32(socket_kernel_memory_operaciones, size);
 
     op_code ack;
-    if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0) {
-        log_error(logger, "Error al recibir ACK de KM en MEM_READ");
+    if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0 || ack == RESPUESTA_ERROR) {
+        log_error(logger, "Error al leer memoria del KM");
 
         pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
         return calloc(size + 1, 1);
     }
-    if(recibir_opcode(socket_kernel_memory_operaciones, &ack) == RESPUESTA_ERROR) {
-        log_error(logger, "KM no pudo leer la memoria");
-        return calloc(size + 1, 1);
-    }
-    
-    enviar_uint32(socket_kernel_memory_operaciones, pid);
-    enviar_uint32(socket_kernel_memory_operaciones, dir_logica);
-    enviar_uint32(socket_kernel_memory_operaciones, size);
     
     char* buffer = malloc(size + 1);
     memset(buffer, 0, size + 1);
@@ -100,28 +95,23 @@ static char* leer_de_kernel_memory(uint32_t pid, uint32_t dir_logica, uint32_t s
     return buffer;                                                  
 }
 
-static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_logica, char* datos, uint32_t size, t_log* logger) {
+static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_fisica, char* datos, uint32_t size, t_log* logger) {
 
     pthread_mutex_lock(&mutex_socket_km_operaciones);
 
     enviar_opcode(socket_kernel_memory_operaciones, KM_MEM_WRITE);
+    enviar_uint32(socket_kernel_memory_operaciones, pid);
+    enviar_uint32(socket_kernel_memory_operaciones, dir_fisica);
+    enviar_uint32(socket_kernel_memory_operaciones, size);
 
     op_code ack;
-    if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0) {
+    if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0 || ack == RESPUESTA_ERROR) {
         log_error(logger, "Error al recibir ACK de KM en MEM_WRITE");
 
         pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
         return;
     }
-    if(recibir_opcode(socket_kernel_memory_operaciones, &ack) == RESPUESTA_ERROR) {
-        log_error(logger, "KM no pudo escribir en la memoria");
-        return;
-    }
-    
-    enviar_uint32(socket_kernel_memory_operaciones, pid);
-    enviar_uint32(socket_kernel_memory_operaciones, dir_logica);
-    enviar_uint32(socket_kernel_memory_operaciones, size);
     
     enviar_buffer(socket_kernel_memory_operaciones, datos, size);
 
@@ -153,7 +143,7 @@ static void* hilo_io_listener(void* arg) {
             memset(buffer, 0, BUFFER_SIZE);
             recibir_string(io->socket_fd, buffer, BUFFER_SIZE);
 
-            escribir_en_kernel_memory(pid_finalizado, req_copia.dir_logica, buffer, req_copia.size, io->logger);
+            escribir_en_kernel_memory(pid_finalizado, req_copia.dir_fisica, buffer, req_copia.size, io->logger);
         }
 
         //espero confirmación de que se ejecutó la acción asociada al tipo de IO.
@@ -170,7 +160,8 @@ static void* hilo_io_listener(void* arg) {
 
         log_info(io->logger, "## (%d) finalizó IO y pasa a READY / SUSP. READY", pid_finalizado);
 
-        if (req_copia.datos != NULL) // DUDA: Por qué if? Se podría llegar a liberar en otro lado?
+        //libero el campo datos de req.copia solo cuando venimos del caos STDOUT.
+        if (req_copia.datos != NULL)
             free(req_copia.datos);
 
         //trato de quitar el proceso de la lista de bloqueados.
@@ -249,11 +240,11 @@ void manejar_syscall_io(t_pcb* proceso, t_io_request* req, int socket_cpu, t_log
 
     //si el tipo de interfaz es STDOUT leo desde una dirección de memoria un tamaño de bytes.
     if (req->tipo == TIPO_IO_STDOUT) 
-        req->datos = leer_de_kernel_memory(proceso->pid, req->dir_logica, req->size, logger);
+        req->datos = leer_de_kernel_memory(proceso->pid, req->dir_fisica, req->size, logger);
 
     pthread_mutex_lock(&io->mutex_req);
 
-    io->req_en_vuelo = *req; // DUDA: Por qué se hace esto?
+    io->req_en_vuelo = *req;
     
     pthread_mutex_unlock(&io->mutex_req);
 

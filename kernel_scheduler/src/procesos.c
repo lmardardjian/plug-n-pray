@@ -34,11 +34,23 @@ void destruir_pcb(void* ptr) {
     free(ptr);
 }
 
-void destruir_todos_global() { //cambia cuando KM esté completo
+void destruir_todos_global() {
 
     pthread_mutex_lock(&mutex_p_activos);
 
-    list_destroy_and_destroy_elements(p_activos_global, destruir_pcb); 
+    int tamanio = list_size(p_activos_global);
+    for (int i = 0; i < tamanio; i++) {
+        t_pcb* proceso = list_get(p_activos_global, i);
+
+        pthread_mutex_lock(&mutex_socket_km_operaciones);
+        enviar_opcode(socket_kernel_memory_operaciones, KM_FINALIZAR_PROCESO);
+        enviar_uint32(socket_kernel_memory_operaciones, proceso->pid);
+        op_code ack;
+        recibir_opcode(socket_kernel_memory_operaciones, &ack);
+        pthread_mutex_unlock(&mutex_socket_km_operaciones);
+    }
+
+    list_destroy_and_destroy_elements(p_activos_global, destruir_pcb);
 
     pthread_mutex_unlock(&mutex_p_activos);
 }

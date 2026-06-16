@@ -531,9 +531,66 @@ void op_mem_alloc(int cliente)
         pthread_mutex_unlock(&g_mutex_huecos);
 
         if (libre >= tamanio) {
-            // hay espacio pero fragmentado → pedir compactación
             log_info(logger, "## PID: %u - Sin hueco contiguo, pidiendo compactacion", pid);
-            enviar_opcode(cliente, RESPUESTA_NECESITA_COMPACTAR);
+
+            // notificar al KS que desaloje todas las CPUs
+            pthread_mutex_lock(&g_mutex_ks_notif);
+
+            enviar_opcode(g_socket_ks_notificaciones, KM_NOTIF_COMPACTAR);
+
+            pthread_mutex_unlock(&g_mutex_ks_notif);
+
+            // esperar confirmación del KS de que desalojó todo
+            op_code confirmacion;
+            recibir_opcode(cliente, &confirmacion);
+
+            if (confirmacion == KM_COMPACTACION_OK) {
+                compactar_memoria();
+
+                // reintentar el alloc
+                pthread_mutex_lock(&g_mutex_huecos);
+
+                int idx2 = seleccionar_hueco(tamanio);
+                if (idx2 == -1) {
+
+                    pthread_mutex_unlock(&g_mutex_huecos);
+
+                    log_error(logger, "## PID: %u - Sin memoria incluso tras compactar", pid);
+                    enviar_opcode(cliente, RESPUESTA_ERROR);
+                    return;
+                }
+                uint32_t base2 = ocupar_hueco(idx2, tamanio);
+                
+                pthread_mutex_unlock(&g_mutex_huecos);
+
+                // agregar segmento al proceso
+                char key[20];
+                snprintf(key, sizeof(key), "%u", pid);
+
+                pthread_mutex_lock(&g_mutex_procesos);
+
+                t_proceso_memoria* proc2 = dictionary_get(g_procesos, key);
+                if (!proc2) {
+
+                    pthread_mutex_unlock(&g_mutex_procesos);
+
+                    liberar_segmento(base2, tamanio);
+                    enviar_opcode(cliente, RESPUESTA_ERROR);
+                    return;
+                }
+                t_segmento* seg2 = malloc(sizeof(t_segmento));
+                seg2->id_segmento = id_segmento;
+                seg2->base        = base2;
+                seg2->limite      = tamanio;
+                list_add(proc2->contexto.tabla_segmentos, seg2);
+
+                pthread_mutex_unlock(&g_mutex_procesos);
+
+                log_info(logger, "## PID: %u - Segmento %u creado tras compactacion", pid, id_segmento);
+                enviar_opcode(cliente, RESPUESTA_OK);
+            } else {
+                enviar_opcode(cliente, RESPUESTA_ERROR);
+            }
         } else {
             log_error(logger, "## PID: %u - Sin memoria suficiente", pid);
             enviar_opcode(cliente, RESPUESTA_ERROR);

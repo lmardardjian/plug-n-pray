@@ -38,6 +38,7 @@ extern t_log* logger;
 void inicializar_ks_planificador();
 
 void agregar_a_ready(t_pcb* proceso);
+void agregar_al_principio_de_ready(t_pcb* proceso);
 t_pcb* obtener_siguiente_proceso();
 
 void agregar_a_block(t_pcb* proceso);

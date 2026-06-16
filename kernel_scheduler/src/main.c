@@ -22,11 +22,18 @@ pthread_mutex_t mutex_socket_km_operaciones;
 t_list* p_activos_global; //lista que contiene todos los procesos "vivos".
 pthread_mutex_t mutex_p_activos;
 
-char* algoritmo; //algortimo de planificación de procesos.
-char** queues_algoritmos; //cola de algoritmos de planificación de procesos para cada prioridad (solo si estamos en CMN).
-
 uint32_t proximo_pid = 1; //identificador del siguiente proceso por crear. El pid 0 lo usa el proceso inicial, por eso inicializa en 1.
 pthread_mutex_t mutex_pid;
+
+bool compactando = false; //forma de hacer notar que el Kernel Memory pidió desalojar los procesos de las cpus para compactar la memoria.
+pthread_mutex_t mutex_compactando;
+sem_t sem_compactacion; //semáforo productor-consumidor del hilo dispatcher para que no mande procesos a cpus mientas estoy compactando.
+
+bool desalojo_por_compactacion = false;
+pthread_mutex_t mutex_desalojo_compactacion;
+
+char* algoritmo; //algortimo de planificación de procesos.
+char** queues_algoritmos; //cola de algoritmos de planificación de procesos para cada prioridad (solo si estamos en CMN).
 
 int cant_prioridades = 1; //1 por default. Cambia si el algoritmo de planificación es CMN.
 
@@ -71,10 +78,6 @@ void* atender_cpu(void* arg) {
                 manejar_tick_progress(socket_cpu, proceso);
                 break;
 
-            case KS_FIN_QUANTUM: // DUDA: Este no lo está mandando nadieee.
-                manejar_fin_quantum(socket_cpu, proceso);
-                break;
-
             case KS_SYSCALL_IO:
                 manejar_syscall_io_cpu(socket_cpu, proceso);
                 break;
@@ -89,6 +92,14 @@ void* atender_cpu(void* arg) {
 
             case KS_MUTEX_UNLOCK:
                 manejar_syscall_mutex_unlock (socket_cpu, proceso);
+                break;
+            
+            case KS_MEM_ALLOC:
+                manejar_syscall_mem_alloc(socket_cpu, proceso);
+                break;
+            
+            case KS_MEM_FREE:
+                manejar_syscall_mem_free(socket_cpu, proceso);
                 break;
                 
             case KS_EXIT:
@@ -148,7 +159,7 @@ void* escuchar_conexiones(void* arg) {
     return NULL;
 }
 
-void* escuchar_kernel_memory(void* arg) { // DUDA: No estoy usando el argumento, es correcto?
+void* escuchar_kernel_memory(void* arg) {
     while (1) {
         op_code opcode;
         if (recibir_opcode(socket_km_notificaciones, &opcode) <= 0) {
@@ -163,6 +174,55 @@ void* escuchar_kernel_memory(void* arg) { // DUDA: No estoy usando el argumento,
                 blue_screen_of_death = true;
                 break;
 
+            case KM_NOTIF_MEMORIA_LIBRE:
+                intentar_reanudar_proceso();
+                break;
+
+            case KM_NOTIF_COMPACTAR:
+                sem_wait(&sem_compactacion);
+
+                log_info(logger, "## Inicio de compactacion");
+
+                pthread_mutex_lock(&mutex_desalojo_compactacion);
+
+                desalojo_por_compactacion = true;
+
+                pthread_mutex_unlock(&mutex_desalojo_compactacion);
+
+                pthread_mutex_lock(&mutex_exec);
+                //desalojo todas las CPUs.
+                for (int i = 0; i < list_size(lista_exec); i++) {
+                    t_pcb* en_exec = list_get(lista_exec, i);
+                    int socket_cpu_exec = obtener_socket_cpu_de(en_exec->pid);
+                    if (socket_cpu_exec != -1)
+                        marcar_interrupcion(socket_cpu_exec);
+                }
+                pthread_mutex_unlock(&mutex_exec);
+
+                // confirmar al KM que puede compactar
+                pthread_mutex_lock(&mutex_socket_km_operaciones);
+
+                enviar_opcode(socket_kernel_memory_operaciones, KM_COMPACTACION_OK);
+
+                op_code ack;
+                recibir_opcode(socket_kernel_memory_operaciones, &ack);
+
+                if (ack != RESPUESTA_OK)
+                    log_error(logger, "Error en compactacion");
+
+                pthread_mutex_unlock(&mutex_socket_km_operaciones);
+
+                pthread_mutex_lock(&mutex_desalojo_compactacion);
+
+                desalojo_por_compactacion = false;
+                
+                pthread_mutex_unlock(&mutex_desalojo_compactacion);
+
+                log_info(logger, "## Fin de compactacion");
+
+                sem_post(&sem_compactacion);
+
+                break;
             //acá agregar case para si km notifica que hay memoria disponible por compactación o por nuevo memory stick    
             
             default:
@@ -174,10 +234,14 @@ void* escuchar_kernel_memory(void* arg) { // DUDA: No estoy usando el argumento,
 }
 
 static void inicializar_ks_estructuras() {
-    p_activos_global = list_create();   
+    p_activos_global = list_create();
+
     pthread_mutex_init(&mutex_pid, NULL);
-    pthread_mutex_init(&mutex_socket_km_operaciones, NULL);
     pthread_mutex_init(&mutex_p_activos, NULL);
+    pthread_mutex_init(&mutex_compactando, NULL);
+    pthread_mutex_init(&mutex_socket_km_operaciones, NULL);
+
+    sem_init(&sem_compactacion, 0, 1);
 }
 
 //------------------------------------ MAIN KERNEL SCHEDULER ------------------------------------
@@ -303,7 +367,7 @@ int main(int argc, char* argv[]) {
             destruir_todos_global();
             break;
         }
-        sleep(1);
+        sleep(1); // DUDA: No podríamos usar un semáforo productor-consumidor para esto en lugar de hacer espera activa?
     }
 
     cerrar_conexion(socket_kernel_memory_operaciones, logger);

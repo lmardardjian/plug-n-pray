@@ -11,7 +11,7 @@ typedef struct {
     uint32_t pid;
     tipo_io tipo;
     uint32_t sleep_ms;
-    uint32_t dir_logica;
+    uint32_t dir_fisica;
     uint32_t size;
     void* datos;
 } t_io_request;

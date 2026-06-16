@@ -151,6 +151,8 @@ void  manejar_syscall_mutex_lock(int socket_cpu, t_pcb* proceso) {
     recibir_string(socket_cpu, nombre_mutex, sizeof(nombre_mutex));
     recibir_string(socket_cpu, param2, sizeof(param2));
 
+    log_info(logger, "## (%d) - Solicitó syscall: MUTEX_LOCK", proceso->pid);
+
     bool conseguido = mutex_lock(nombre_mutex, proceso);
 
     if(conseguido) {
@@ -174,6 +176,8 @@ void manejar_syscall_mutex_unlock (int socket_cpu, t_pcb* proceso) {
     recibir_uint32(socket_cpu, &tipo_inst);
     recibir_string(socket_cpu, nombre_mutex, sizeof(nombre_mutex));
     recibir_string(socket_cpu, param2, sizeof(param2));
+
+    log_info(logger, "## (%d) - Solicitó syscall: MUTEX_UNLOCK", proceso->pid);
 
     cancelar_timer(socket_cpu);
     quitar_de_exec(proceso->pid);

@@ -2,6 +2,7 @@
 #define PROCESOS_H
 
 #include "pcb.h"
+#include "utils/mensajes.h"
 #include <commons/collections/list.h>
 #include <commons/log.h>
 #include <pthread.h>
@@ -10,6 +11,9 @@
 
 extern t_list* p_activos_global;
 extern pthread_mutex_t mutex_p_activos;
+
+extern int socket_kernel_memory_operaciones;
+extern pthread_mutex_t mutex_socket_km_operaciones;
 
 t_pcb *crear_pcb (uint32_t pid, uint32_t prioridad);
 t_pcb* encontrar_proceso_global(uint32_t pid);

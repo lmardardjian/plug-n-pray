@@ -5,7 +5,7 @@
 #include <commons/collections/list.h>
 
 typedef enum {
-    MENSAJE,
+    MENSAJE, // DUDA: Está de más?
 
     //mensajes io
     IO_EJECUTAR,
@@ -22,7 +22,7 @@ typedef enum {
     KM_REANUDAR_PROCESO,
     KM_BSOD,
     KM_NOTIF_MEMORIA_LIBRE,       
-    KM_NOTIF_COMPACTAR,  
+    KM_NOTIF_COMPACTAR,
     KM_COMPACTACION_OK,          
     KM_FINALIZAR_PROCESO, 
     KM_MEM_ALLOC,                
@@ -33,16 +33,18 @@ typedef enum {
     RESPUESTA_ERROR,
     RESPUESTA_NECESITA_COMPACTAR,
 
-    // mensajes cpu -> kernel scheduler
+    //mensajes cpu -> kernel scheduler
     KS_TICK_PROGRESS_CONTINUE,
-    KS_FIN_QUANTUM,
     KS_SYSCALL_IO,
+    KS_MUTEX_CREATE,
     KS_MUTEX_LOCK,
     KS_MUTEX_UNLOCK,
-    KS_MUTEX_CREATE,
+    KS_MEM_ALLOC,
+    KS_MEM_FREE,
     KS_EXIT,
     KS_INIT_PROC,
 
+    //DUDA: Estos dos comentados no se usan en ningún lado, código viejo?
     //mensajes memory stick
     //MS_RESERVAR,
     //MS_LIBERAR,
@@ -50,7 +52,7 @@ typedef enum {
     MS_ESCRIBIR,
 } op_code;
 
-typedef enum {
+typedef enum { // DUDA: Por qué tiene los valores hardcodeados?
     MODULO_KERNEL_MEMORY = 1,
     MODULO_KERNEL_SCHEDULER = 2,
     MODULO_CPU = 3,

@@ -297,15 +297,65 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
             enviar_syscall(fd_scheduler, inst, KS_MUTEX_UNLOCK);
             return 1;
         }
-        case INST_MEM_ALLOC:
-        case INST_MEM_FREE:
-        case INST_SLEEP:
-        case INST_STDOUT:
-        case INST_STDIN: {
-            if(!pc_modificado) {
-                ctx->pc++;
-            }
+        case INST_MEM_ALLOC: {
+            ctx->pc++;
             actualizar_contexto(fd_memory, ctx);
+            enviar_syscall(fd_scheduler, inst, KS_MEM_ALLOC);
+            return 1;
+        }
+        case INST_MEM_FREE: {
+            ctx->pc++;
+            actualizar_contexto(fd_memory, ctx);
+            enviar_syscall(fd_scheduler, inst, KS_MEM_FREE);
+            return 1;
+        }
+        case INST_SLEEP: {
+            uint32_t tiempo = leer_registro(ctx, inst.param1);
+
+            ctx->pc++;
+            actualizar_contexto(fd_memory, ctx);
+
+            snprintf(inst.param1, sizeof(inst.param1), "%u", tiempo);
+            inst.param2[0] = '\0';
+
+            enviar_syscall(fd_scheduler, inst, KS_SYSCALL_IO);
+            return 1;
+        }
+        case INST_STDOUT: {
+            uint32_t dir_logica = leer_registro(ctx, inst.param1);
+            uint32_t tamanio    = leer_registro(ctx, inst.param2);
+            int32_t dir_fisica  = mmu_traducir(ctx, dir_logica, tamanio);
+    
+            if (dir_fisica < 0) {
+                enviar_seg_fault(fd_scheduler, fd_memory, ctx, logger);
+                return 1;
+            }
+    
+            ctx->pc++;
+            actualizar_contexto(fd_memory, ctx);
+    
+            snprintf(inst.param1, sizeof(inst.param1), "%d", dir_fisica);
+            snprintf(inst.param2, sizeof(inst.param2), "%u", tamanio);
+    
+            enviar_syscall(fd_scheduler, inst, KS_SYSCALL_IO);
+            return 1;
+        }
+        case INST_STDIN: {
+            uint32_t dir_logica = leer_registro(ctx, inst.param1);
+            uint32_t tamanio  = leer_registro(ctx, inst.param2);
+            int32_t dir_fisica  = mmu_traducir(ctx, dir_logica, tamanio);
+    
+            if (dir_fisica < 0) {
+            enviar_seg_fault(fd_scheduler, fd_memory, ctx, logger);
+            return 1;
+            }
+
+            ctx->pc++;
+            actualizar_contexto(fd_memory, ctx);
+
+            snprintf(inst.param1, sizeof(inst.param1), "%d", dir_fisica);
+            snprintf(inst.param2, sizeof(inst.param2), "%u", tamanio);
+
             enviar_syscall(fd_scheduler, inst, KS_SYSCALL_IO);
             return 1;
         }
@@ -328,7 +378,7 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
         }
         default:
             log_error(logger, "Instrucción desconocida");
-            return 1; //1 indica syscall, no debería ser un exit_error o algo por el estilo?
+            return 1; //DUDA: 1 indica syscall, no debería ser un exit_error o algo por el estilo?
     }
     if(!pc_modificado) {
         ctx->pc++;
@@ -374,7 +424,7 @@ void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger) {
         free(texto);
 
         // EXECUTE 
-        int fue_syscall = execute(inst, &ctx, fd_scheduler, fd_memory, logger); // podría ser un opcode en vez de un bool de c
+        int fue_syscall = execute(inst, &ctx, fd_scheduler, fd_memory, logger);
         if(fue_syscall) { 
             break;
         }

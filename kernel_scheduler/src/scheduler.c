@@ -1,7 +1,7 @@
 #include "scheduler.h"
 #include "utils/hilos.h"
-#include <unistd.h>
 #include "utils/conexion.h"
+#include <unistd.h>
 
 //colas y listas para cada estado.
 t_queue** colas_ready;
@@ -77,7 +77,7 @@ void inicializar_ks_planificador() {
 
 // ----------------------------- READY -----------------------------
 
-static int obtener_socket_cpu_de(uint32_t pid) { //solo se usa si "hay_desalojo_cmn" es true.
+static int obtener_socket_cpu_de(uint32_t pid) {
 
     pthread_mutex_lock(&mutex_cpu_proceso);
 
@@ -125,6 +125,23 @@ void agregar_a_ready(t_pcb* proceso) {
         }
         pthread_mutex_unlock(&mutex_exec);
     }
+}
+
+void agregar_al_principio_de_ready(t_pcb* proceso){ //cambia con herencia
+
+    pthread_mutex_lock(&mutex_ready);
+
+    if(proceso->prioridad < cant_prioridades) {
+
+        t_queue* cola = colas_ready[proceso->prioridad];
+        list_add_in_index(cola->elements, 0, proceso); //inserta al frente de la cola de su prioridad.
+    } else {
+        log_warning(logger, "El proceso %d tiene una prioridad implanificable", proceso->prioridad);
+    }
+
+    pthread_mutex_unlock(&mutex_ready);
+
+    sem_post(&sem_procesos_en_ready); //avisa que hay un proceso en colas_ready.
 }
 
 t_pcb* obtener_siguiente_proceso() {
@@ -433,7 +450,7 @@ void intentar_reanudar_proceso() { //recolecta candidatos por nivel de prioridad
                 devolver_a_block_sin_alterar_timer(proceso);
             }
         } else {
-            //no hay memoria. devolver a su lista original.
+            //no hay memoria. Lo devuelvo a su lista original.
             if (proceso->estado == ESTADO_SUSP_READY)
                 agregar_a_susp_ready(proceso);
             else

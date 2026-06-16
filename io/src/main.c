@@ -70,8 +70,6 @@ int main(int argc, char* argv[]) {
     }
     log_info(logger, "Handshake realizado correctamente");
 
-    //Duda con esto de acá abajo
-
     enviar_tipo_io(conexion, tipo);  // manda TIPO_IO_SLEEP/STDIN/STDOUT 
 
     // LOOP PRINCIPAL
