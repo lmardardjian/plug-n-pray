@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <semaphore.h>
 
 // VARIABLES GLOBALES
 t_list*         g_memory_sticks  = NULL;
@@ -22,12 +23,16 @@ int g_socket_ks_operaciones    = -1;
 int g_socket_ks_notificaciones = -1;
 pthread_mutex_t g_mutex_ks_notif = PTHREAD_MUTEX_INITIALIZER;
 
+static sem_t sem_compactacion_ok;
+
 uint32_t g_segment_max_size     = 256;
 char     g_allocation_strategy[8] = "BEST";
 
 // inicializacion
 void inicializar_estado_global(t_config* cfg)
 {
+    sem_init(&sem_compactacion_ok, 0, 0);
+
     g_memory_sticks = list_create();
     g_procesos      = dictionary_create();
     g_huecos        = list_create();
@@ -534,60 +539,9 @@ void op_mem_alloc(int cliente)
             pthread_mutex_lock(&g_mutex_ks_notif);
 
             enviar_opcode(g_socket_ks_notificaciones, KM_NOTIF_COMPACTAR);
+            sem_wait(&sem_compactacion_ok);
+            compactar_memoria();
 
-            pthread_mutex_unlock(&g_mutex_ks_notif);
-
-            // esperar confirmación del KS de que desalojó todo
-            op_code confirmacion;
-            recibir_opcode(cliente, &confirmacion);
-
-            if (confirmacion == KM_COMPACTACION_OK) {
-                compactar_memoria();
-
-                // reintentar el alloc
-                pthread_mutex_lock(&g_mutex_huecos);
-
-                int idx2 = seleccionar_hueco(tamanio);
-                if (idx2 == -1) {
-
-                    pthread_mutex_unlock(&g_mutex_huecos);
-
-                    log_error(logger, "## PID: %u - Sin memoria incluso tras compactar", pid);
-                    enviar_opcode(cliente, RESPUESTA_ERROR);
-                    return;
-                }
-                uint32_t base2 = ocupar_hueco(idx2, tamanio);
-                
-                pthread_mutex_unlock(&g_mutex_huecos);
-
-                // agregar segmento al proceso
-                char key[20];
-                snprintf(key, sizeof(key), "%u", pid);
-
-                pthread_mutex_lock(&g_mutex_procesos);
-
-                t_proceso_memoria* proc2 = dictionary_get(g_procesos, key);
-                if (!proc2) {
-
-                    pthread_mutex_unlock(&g_mutex_procesos);
-
-                    liberar_segmento(base2, tamanio);
-                    enviar_opcode(cliente, RESPUESTA_ERROR);
-                    return;
-                }
-                t_segmento* seg2 = malloc(sizeof(t_segmento));
-                seg2->id_segmento = id_segmento;
-                seg2->base        = base2;
-                seg2->limite      = tamanio;
-                list_add(proc2->contexto.tabla_segmentos, seg2);
-
-                pthread_mutex_unlock(&g_mutex_procesos);
-
-                log_info(logger, "## PID: %u - Segmento %u creado tras compactacion", pid, id_segmento);
-                enviar_opcode(cliente, RESPUESTA_OK);
-            } else {
-                enviar_opcode(cliente, RESPUESTA_ERROR);
-            }
         } else {
             log_error(logger, "## PID: %u - Sin memoria suficiente", pid);
             enviar_opcode(cliente, RESPUESTA_ERROR);
@@ -843,11 +797,9 @@ void* atender_cliente(void* arg)
             case KM_FINALIZAR_PROCESO:   op_finalizar_proceso(cliente);   break;
             case KM_SUSPENDER_PROCESO:   op_suspender_proceso(cliente);   break;
             case KM_REANUDAR_PROCESO:    op_reanudar_proceso(cliente);    break;
-            case KM_COMPACTACION_OK:
-                // el scheduler confirmó que desalojó todas las CPUs
-                log_info(logger, "## KS confirmo desalojo - iniciando compactacion");
-                compactar_memoria();
-                enviar_opcode(cliente, RESPUESTA_OK);
+            case KM_COMPACTACION_OK:    
+                log_info(logger, "## KS confirmo desalojo de CPUs");
+                sem_post(&sem_compactacion_ok);
                 break;
             default:
                 log_error(logger, "## Operacion desconocida: %d", operacion);
