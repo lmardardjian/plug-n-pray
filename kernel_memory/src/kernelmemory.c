@@ -474,7 +474,7 @@ void op_enviar_contexto(int cliente)
         return;
     }
     enviar_opcode(cliente, RESPUESTA_OK);
-    enviar_contexto_completo(cliente, &proc->contexto); //DUDA: No está declarado, código viejo?
+    enviar_contexto_serializado(cliente, &proc->contexto); //DUDA: No está declarado, código viejo?
     pthread_mutex_unlock(&g_mutex_procesos);
 
     log_info(logger, "## Contexto enviado PID %u", pid);
@@ -496,10 +496,7 @@ void op_actualizar_contexto(int cliente)
         return;
     }
 
-    // limpiar tabla vieja y reconstruir con la recibida
-    list_destroy_and_destroy_elements(proc->contexto.tabla_segmentos, free);
-    proc->contexto.tabla_segmentos = list_create();
-    recibir_contexto_completo(cliente, &proc->contexto);
+    recibir_contexto_serializado(cliente, &proc->contexto);
     pthread_mutex_unlock(&g_mutex_procesos);
 
     log_info(logger, "## Contexto actualizado PID %u", pid);
