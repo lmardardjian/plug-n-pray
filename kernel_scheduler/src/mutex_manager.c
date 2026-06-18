@@ -90,7 +90,9 @@ bool mutex_lock(char* nombre, t_pcb* proceso) {
     
         // Si el dueño está en READY, reposicionarlo en la cola correcta
         if (duenio->estado == ESTADO_READY) {
-        // sacarlo de su cola actual y meterlo en la nueva
+            t_pcb* p = quitar_de_ready_por_pid(duenio->pid);
+            if (p != NULL)
+                agregar_al_principio_de_ready(p);
         }
     }
 
@@ -124,18 +126,28 @@ void mutex_unlock(char* nombre) {
 
         pthread_mutex_unlock(&mutex->mutex_interno);
 
+        if (duenio_anterior->prioridad != duenio_anterior->prioridad_original) {
+            log_info(logger, "## %d Cambio de prioridad: %d - %d",
+                     duenio_anterior->pid, duenio_anterior->prioridad,
+                     duenio_anterior->prioridad_original);
+            duenio_anterior->prioridad = duenio_anterior->prioridad_original;
+        }
         return;
     }
 
     //Hay bloqueados
     t_pcb* siguiente = queue_pop(mutex->bloqueados);
-
     mutex->duenio = siguiente;
-
     pthread_mutex_unlock(&mutex->mutex_interno);
 
-    cambiar_estado(siguiente, ESTADO_READY, logger);
+    if (duenio_anterior->prioridad != duenio_anterior->prioridad_original) {
+        log_info(logger, "## %d Cambio de prioridad: %d - %d",
+                 duenio_anterior->pid, duenio_anterior->prioridad,
+                 duenio_anterior->prioridad_original);
+        duenio_anterior->prioridad = duenio_anterior->prioridad_original;
+    }
 
+    cambiar_estado(siguiente, ESTADO_READY, logger);
     agregar_a_ready(siguiente);
 }
 

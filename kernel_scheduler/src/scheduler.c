@@ -144,6 +144,23 @@ void agregar_al_principio_de_ready(t_pcb* proceso){ //cambia con herencia
     sem_post(&sem_procesos_en_ready); //avisa que hay un proceso en colas_ready.
 }
 
+t_pcb* quitar_de_ready_por_pid(uint32_t pid) {
+    pthread_mutex_lock(&mutex_ready);
+    t_pcb* resultado = NULL;
+    for (int nivel = 0; nivel < cant_prioridades && resultado == NULL; nivel++) {
+        t_list* elementos = colas_ready[nivel]->elements;
+        for (int i = 0; i < list_size(elementos); i++) {
+            t_pcb* p = list_get(elementos, i);
+            if (p->pid == pid) {
+                resultado = list_remove(elementos, i);
+                break;
+            }
+        }
+    }
+    pthread_mutex_unlock(&mutex_ready);
+    return resultado;
+}
+
 t_pcb* obtener_siguiente_proceso() {
     
     sem_wait(&sem_procesos_en_ready); //espera a que haya al menos un proceso.
