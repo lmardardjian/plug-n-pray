@@ -209,7 +209,7 @@ static void recrear_timer(int socket_cpu, t_pcb* proceso) {
     }
 }
 
-static void ejecutar_compactacion() {
+/*static void ejecutar_compactacion() {
 
     sem_wait(&sem_compactacion);
 
@@ -247,7 +247,7 @@ static void ejecutar_compactacion() {
     pthread_mutex_unlock(&mutex_desalojo_compactacion);
 
     sem_post(&sem_compactacion);
-}
+}*/
 
 static bool consumir_interrupcion(int socket_cpu) {
 
@@ -361,21 +361,6 @@ void manejar_syscall_mem_alloc(int socket_cpu, t_pcb* proceso) {
     recibir_opcode(socket_kernel_memory_operaciones, &ack);
 
     pthread_mutex_unlock(&mutex_socket_km_operaciones);
-
-    //el KM notificó que hay memoria pero no contigua. Desalojo las CPUs, compacto y reintento.
-    if (ack == RESPUESTA_NECESITA_COMPACTAR) {
-        ejecutar_compactacion();
-
-        pthread_mutex_lock(&mutex_socket_km_operaciones);
-
-        enviar_opcode(socket_kernel_memory_operaciones, KM_MEM_ALLOC);
-        enviar_uint32(socket_kernel_memory_operaciones, proceso->pid);
-        enviar_uint32(socket_kernel_memory_operaciones, id_segmento);
-        enviar_uint32(socket_kernel_memory_operaciones, tamanio);
-        recibir_opcode(socket_kernel_memory_operaciones, &ack);
-
-        pthread_mutex_unlock(&mutex_socket_km_operaciones);
-    }
 
     if (ack != RESPUESTA_OK)
         log_error(logger, "## (%d) MEM_ALLOC falló", proceso->pid);

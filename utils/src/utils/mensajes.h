@@ -31,7 +31,6 @@ typedef enum {
     //respuestas
     RESPUESTA_OK,
     RESPUESTA_ERROR,
-    RESPUESTA_NECESITA_COMPACTAR,
 
     //mensajes cpu -> kernel scheduler
     KS_TICK_PROGRESS_CONTINUE,

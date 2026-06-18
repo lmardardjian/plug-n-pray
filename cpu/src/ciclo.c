@@ -298,13 +298,13 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
             return 1;
         }
         case INST_MEM_ALLOC: {
-            ctx->pc++;
+            if(!pc_modificado) ctx->pc++;
             actualizar_contexto(fd_memory, ctx);
             enviar_syscall(fd_scheduler, inst, KS_MEM_ALLOC);
             return 1;
         }
         case INST_MEM_FREE: {
-            ctx->pc++;
+            if(!pc_modificado) ctx->pc++;
             actualizar_contexto(fd_memory, ctx);
             enviar_syscall(fd_scheduler, inst, KS_MEM_FREE);
             return 1;
