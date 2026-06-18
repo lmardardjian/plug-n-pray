@@ -27,6 +27,7 @@ typedef struct {
     uint32_t  pid;
     t_list*   instrucciones;   
     t_contexto contexto;       // incluye tabla_segmentos 
+    t_list* segmentos_suspendidos;      // lista de t_segmento* guardados al suspender
 } t_proceso_memoria;
 
 // estado global

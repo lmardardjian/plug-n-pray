@@ -31,8 +31,6 @@ char     g_allocation_strategy[8] = "BEST";
 // inicializacion
 void inicializar_estado_global(t_config* cfg)
 {
-    sem_init(&sem_compactacion_ok, 0, 0);
-
     g_memory_sticks = list_create();
     g_procesos      = dictionary_create();
     g_huecos        = list_create();
@@ -42,6 +40,9 @@ void inicializar_estado_global(t_config* cfg)
     char* strat = config_get_string_value(cfg, "ALLOCATION_STRATEGY");
     strncpy(g_allocation_strategy, strat, sizeof(g_allocation_strategy) - 1);
     g_allocation_strategy[sizeof(g_allocation_strategy) - 1] = '\0';
+
+    sem_init(&sem_compactacion_ok, 0, 0);
+    
 }
 
 // contexto
@@ -413,6 +414,7 @@ void op_crear_proceso(int cliente)
     t_proceso_memoria* proc = malloc(sizeof(t_proceso_memoria));
     proc->pid = pid;
     inicializar_contexto(&proc->contexto);
+    proc->segmentos_suspendidos = list_create();
     proc->instrucciones = leer_instrucciones(path_completo);
 
     if (!proc->instrucciones) {
@@ -692,7 +694,51 @@ void op_reanudar_proceso(int cliente)
     // TODO entrega final: restaurar segmentos desde SWAP
     uint32_t pid;
     recibir_uint32(cliente, &pid);
-    log_info(logger, "## PID: %u - Des-suspensión (pendiente entrega final)", pid);
+
+    char key[20];
+    snprintf(key, sizeof(key), "%u", pid);
+
+    pthread_mutex_lock(&g_mutex_procesos);
+    t_proceso_memoria* proc = dictionary_get(g_procesos, key);
+    if (!proc) {
+        pthread_mutex_unlock(&g_mutex_procesos);
+        enviar_opcode(cliente, RESPUESTA_ERROR);
+        return;
+    }
+
+    // verificar que haya espacio para todos los segmentos
+    pthread_mutex_lock(&g_mutex_huecos);
+    for (int i = 0; i < (int)list_size(proc->segmentos_suspendidos); i++) {
+        t_segmento* seg = list_get(proc->segmentos_suspendidos, i);
+        if (seleccionar_hueco(seg->limite) == -1) {
+            pthread_mutex_unlock(&g_mutex_huecos);
+            pthread_mutex_unlock(&g_mutex_procesos);
+            enviar_opcode(cliente, RESPUESTA_ERROR);
+            return;
+        }
+    }
+
+    // reasignar memoria para cada segmento
+    for (int i = 0; i < (int)list_size(proc->segmentos_suspendidos); i++) {
+        t_segmento* seg = list_get(proc->segmentos_suspendidos, i);
+        int idx = seleccionar_hueco(seg->limite);
+        uint32_t nueva_base = ocupar_hueco(idx, seg->limite);
+
+        t_segmento* nuevo = malloc(sizeof(t_segmento));
+        nuevo->id_segmento = seg->id_segmento;
+        nuevo->base        = nueva_base;
+        nuevo->limite      = seg->limite;
+        list_add(proc->contexto.tabla_segmentos, nuevo);
+    }
+    pthread_mutex_unlock(&g_mutex_huecos);
+
+    // limpiar segmentos suspendidos
+    list_destroy_and_destroy_elements(proc->segmentos_suspendidos, free);
+    proc->segmentos_suspendidos = list_create();
+
+    pthread_mutex_unlock(&g_mutex_procesos);
+
+    log_info(logger, "## PID: %u - Proceso reanudado, memoria restaurada", pid);
     enviar_opcode(cliente, RESPUESTA_OK);
 }
 
