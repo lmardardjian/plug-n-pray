@@ -118,7 +118,7 @@ void* atender_cpu(void* arg) {
 // ------------------------------------- Aceptar CPUs e IOs -------------------------------------
 
 void* escuchar_conexiones(void* arg) {
-    int* servidor = *(int*) arg; //bellisimo.
+    int servidor = *(int*) arg; //bellisimo.
     while (1) {
         int cliente = esperar_cliente_modulo(logger, servidor, "Kernel Scheduler");
         if (cliente == -1) {
