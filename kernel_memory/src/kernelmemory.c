@@ -672,6 +672,7 @@ void op_finalizar_proceso(int cliente)
     }
     list_destroy_and_destroy_elements(proc->contexto.tabla_segmentos, free);
     list_destroy_and_destroy_elements(proc->instrucciones, free);
+    list_destroy_and_destroy_elements(proc->segmentos_suspendidos, free);
     free(proc);
 
     log_info(logger, "## PID: %u - Proceso finalizado y memoria liberada", pid);
