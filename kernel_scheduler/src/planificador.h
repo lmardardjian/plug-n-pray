@@ -19,8 +19,8 @@ extern pthread_mutex_t mutex_pid;
 
 extern sem_t sem_compactacion;
 
-bool desalojo_por_compactacion;
-pthread_mutex_t mutex_desalojo_compactacion;
+extern bool desalojo_por_compactacion;
+extern pthread_mutex_t mutex_desalojo_compactacion;
 
 extern char* algoritmo;
 extern char** queues_algoritmos;
