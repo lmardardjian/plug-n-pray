@@ -77,7 +77,7 @@ void inicializar_ks_planificador() {
 
 // ----------------------------- READY -----------------------------
 
-static int obtener_socket_cpu_de(uint32_t pid) {
+int obtener_socket_cpu_de(uint32_t pid) {
 
     pthread_mutex_lock(&mutex_cpu_proceso);
 

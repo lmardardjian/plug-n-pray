@@ -58,5 +58,6 @@ t_pcb* quitar_de_susp_block_por_pid(uint32_t pid);
 void* hilo_suspension(void* arg);
 void intentar_reanudar_proceso();
 void registrar_cpu_proceso(int socket_cpu_ejecutando, uint32_t pid);
+int obtener_socket_cpu_de(uint32_t pid);
 
 #endif
