@@ -119,6 +119,8 @@ void mutex_unlock(char* nombre) {
 
     pthread_mutex_lock(&mutex->mutex_interno);
 
+    t_pcb* duenio_anterior = mutex->duenio;
+
     //No hay bloqueados
     if(queue_is_empty(mutex->bloqueados)) {
 

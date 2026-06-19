@@ -202,12 +202,6 @@ void* escuchar_kernel_memory(void* arg) {
 
                 enviar_opcode(socket_kernel_memory_operaciones, KM_COMPACTACION_OK);
 
-                op_code ack;
-                recibir_opcode(socket_kernel_memory_operaciones, &ack);
-
-                if (ack != RESPUESTA_OK)
-                    log_error(logger, "Error en compactacion");
-
                 pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
                 pthread_mutex_lock(&mutex_desalojo_compactacion);
