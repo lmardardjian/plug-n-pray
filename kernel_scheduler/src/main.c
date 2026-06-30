@@ -198,11 +198,7 @@ void* escuchar_kernel_memory(void* arg) {
                 pthread_mutex_unlock(&mutex_exec);
 
                 // confirmar al KM que puede compactar
-                pthread_mutex_lock(&mutex_socket_km_operaciones);
-
-                enviar_opcode(socket_kernel_memory_operaciones, KM_COMPACTACION_OK);
-
-                pthread_mutex_unlock(&mutex_socket_km_operaciones);
+                enviar_opcode(socket_km_notificaciones, KM_COMPACTACION_OK);
 
                 pthread_mutex_lock(&mutex_desalojo_compactacion);
 

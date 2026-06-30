@@ -812,7 +812,9 @@ void* atender_cliente(void* arg)
     // el scheduler se conecta dos veces: 1ª = socket de operaciones,
     // 2ª = socket de notificaciones (el KS se conecta, espera mensajes async)
     if (modulo == MODULO_KERNEL_SCHEDULER) {
-        if (g_socket_ks_operaciones == -1) {
+        bool es_notificaciones = (g_socket_ks_operaciones != -1);
+
+        if (!es_notificaciones) {
             g_socket_ks_operaciones = cliente;
             log_info(logger, "## Kernel Scheduler Conectado - FD del socket: %d", cliente);
         } else {
@@ -820,7 +822,6 @@ void* atender_cliente(void* arg)
             log_info(logger, "## Kernel Scheduler socket notificaciones FD: %d", cliente);
             // este hilo no necesita hacer nada más, el kernel memory escribe en este
             // socket mediante notificar_*. Lo dejamos vivo sin loop.
-            return NULL;
         }
     }
 
@@ -831,6 +832,18 @@ void* atender_cliente(void* arg)
             log_error(logger, "## Cliente desconectado (fd=%d)", cliente);
             break;
         }
+
+        if (es_notificaciones) {
+            switch(operacion) {
+                case KM_COMPACTACION_OK:
+                    log_info(logger, "## KS confirmo desalojo de CPUs");
+                    sem_post(&sem_compactacion_ok);
+                    break;
+                default:
+                    log_warning(logger, "Operacion inesperada en socket notificaciones: %d", operacion);
+                    break;
+            }
+        } else {
 
         switch (operacion) {
             case KM_CREAR_PROCESO:       op_crear_proceso(cliente);       break;
@@ -844,10 +857,6 @@ void* atender_cliente(void* arg)
             case KM_FINALIZAR_PROCESO:   op_finalizar_proceso(cliente);   break;
             case KM_SUSPENDER_PROCESO:   op_suspender_proceso(cliente);   break;
             case KM_REANUDAR_PROCESO:    op_reanudar_proceso(cliente);    break;
-            case KM_COMPACTACION_OK:    
-                log_info(logger, "## KS confirmo desalojo de CPUs");
-                sem_post(&sem_compactacion_ok);
-                break;
             default:
                 log_error(logger, "## Operacion desconocida: %d", operacion);
                 break;
