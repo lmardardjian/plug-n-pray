@@ -22,12 +22,19 @@ typedef struct {
     uint32_t tamanio;
 } t_hueco;
 
+// segmento guardado en SWAP (mientras el proceso esta suspendido)
+typedef struct {
+    uint32_t id_segmento;
+    uint32_t tamanio;     // tamanio real del segmento (puede no ser multiplo de block_size)
+    t_list*  bloques;     // lista de uint32_t*, numeros de bloque de SWAP, en orden
+} t_segmento_swap;
+
 // proceso en memoria (instrucciones + contexto de ejecucion)
 typedef struct {
     uint32_t  pid;
     t_list*   instrucciones;   
     t_contexto contexto;       // incluye tabla_segmentos 
-    t_list* segmentos_suspendidos;      // lista de t_segmento* guardados al suspender
+    t_list* segmentos_suspendidos;      // lista de t_segmento_swap* guardados al suspender
 } t_proceso_memoria;
 
 // estado global
@@ -47,6 +54,14 @@ extern pthread_mutex_t g_mutex_ks_notif;
 
 extern uint32_t g_segment_max_size;
 extern char     g_allocation_strategy[8]; // "BEST" o "WORST"
+
+// SWAP
+extern int             g_socket_swap;        // -1 si no hay swap conectado
+extern pthread_mutex_t g_mutex_swap;         // serializa el uso del socket de swap
+extern uint32_t         g_swap_block_size;
+extern uint32_t         g_swap_total_bloques;
+extern t_list*          g_bloques_libres;    // lista de uint32_t*, numeros de bloque libres
+extern pthread_mutex_t  g_mutex_bloques_swap;
 
 // arg para hilos
 typedef struct {
@@ -70,6 +85,12 @@ int   escribir_en_sticks(uint32_t dir_fisica, void* datos, uint32_t tamanio);
 // compactación
 void compactar_memoria(void);
 
+// swap: manejo de bloques
+t_list* asignar_bloques_swap(uint32_t cantidad);   // NULL si no hay suficientes
+void    liberar_bloques_swap(t_list* bloques);     // devuelve los bloques al pool y destruye la lista
+int     leer_bloque_swap(uint32_t num_bloque, void* destino);
+int     escribir_bloque_swap(uint32_t num_bloque, void* datos);
+
 // notificaciones al kernel_scheduler
 void notificar_bsod_al_scheduler(void);
 void notificar_memoria_libre_al_scheduler(void);
@@ -90,4 +111,4 @@ void op_reanudar_proceso(int cliente);
 // hilo de atención
 void* atender_cliente(void* arg);
 
-#endif 
+#endif

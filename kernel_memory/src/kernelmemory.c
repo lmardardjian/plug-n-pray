@@ -28,6 +28,13 @@ static sem_t sem_compactacion_ok;
 uint32_t g_segment_max_size     = 256;
 char     g_allocation_strategy[8] = "BEST";
 
+int             g_socket_swap        = -1;
+pthread_mutex_t g_mutex_swap         = PTHREAD_MUTEX_INITIALIZER;
+uint32_t        g_swap_block_size    = 0;
+uint32_t        g_swap_total_bloques = 0;
+t_list*         g_bloques_libres     = NULL;
+pthread_mutex_t g_mutex_bloques_swap = PTHREAD_MUTEX_INITIALIZER;
+
 // inicializacion
 void inicializar_estado_global(t_config* cfg)
 {
@@ -377,6 +384,86 @@ void compactar_memoria(void)
     notificar_memoria_libre_al_scheduler();
 }
 
+// swap: manejo de bloques
+
+// pide 'cantidad' bloques libres. Devuelve NULL si no hay suficientes.
+t_list* asignar_bloques_swap(uint32_t cantidad)
+{
+    t_list* asignados = list_create();
+
+    pthread_mutex_lock(&g_mutex_bloques_swap);
+    if (!g_bloques_libres || (uint32_t)list_size(g_bloques_libres) < cantidad) {
+        pthread_mutex_unlock(&g_mutex_bloques_swap);
+        list_destroy(asignados);
+        return NULL;
+    }
+    for (uint32_t i = 0; i < cantidad; i++)
+        list_add(asignados, list_remove(g_bloques_libres, 0));
+    pthread_mutex_unlock(&g_mutex_bloques_swap);
+
+    return asignados;
+}
+
+// devuelve los bloques al pool de libres y destruye la lista recibida
+// (no libera los uint32_t*, pasan a ser propiedad de g_bloques_libres)
+void liberar_bloques_swap(t_list* bloques)
+{
+    if (!bloques) return;
+
+    pthread_mutex_lock(&g_mutex_bloques_swap);
+    for (int i = 0; i < (int)list_size(bloques); i++)
+        list_add(g_bloques_libres, list_get(bloques, i));
+    pthread_mutex_unlock(&g_mutex_bloques_swap);
+
+    list_destroy(bloques);
+}
+
+// lee un bloque completo (g_swap_block_size bytes) desde el modulo SWAP
+int leer_bloque_swap(uint32_t num_bloque, void* destino)
+{
+    if (g_socket_swap == -1) return -1;
+
+    pthread_mutex_lock(&g_mutex_swap);
+    enviar_opcode(g_socket_swap, SW_LEER);
+    enviar_uint32(g_socket_swap, num_bloque);
+
+    op_code resp;
+    if (recibir_opcode(g_socket_swap, &resp) <= 0 || resp != RESPUESTA_OK) {
+        pthread_mutex_unlock(&g_mutex_swap);
+        return -1;
+    }
+    recibir_buffer(g_socket_swap, destino, g_swap_block_size);
+    pthread_mutex_unlock(&g_mutex_swap);
+    return 0;
+}
+
+// escribe un bloque completo (g_swap_block_size bytes) en el modulo SWAP
+int escribir_bloque_swap(uint32_t num_bloque, void* datos)
+{
+    if (g_socket_swap == -1) return -1;
+
+    pthread_mutex_lock(&g_mutex_swap);
+    enviar_opcode(g_socket_swap, SW_ESCRIBIR);
+    enviar_uint32(g_socket_swap, num_bloque);
+    enviar_buffer(g_socket_swap, datos, g_swap_block_size);
+
+    op_code resp;
+    if (recibir_opcode(g_socket_swap, &resp) <= 0 || resp != RESPUESTA_OK) {
+        pthread_mutex_unlock(&g_mutex_swap);
+        return -1;
+    }
+    pthread_mutex_unlock(&g_mutex_swap);
+    return 0;
+}
+
+// libera un t_segmento_swap: devuelve sus bloques al pool y lo destruye
+static void destruir_segmento_swap(void* elem)
+{
+    t_segmento_swap* ss = (t_segmento_swap*)elem;
+    liberar_bloques_swap(ss->bloques);
+    free(ss);
+}
+
 // notificaciones al kernel scheduler
 void notificar_bsod_al_scheduler(void)
 {
@@ -672,27 +759,20 @@ void op_finalizar_proceso(int cliente)
     }
     list_destroy_and_destroy_elements(proc->contexto.tabla_segmentos, free);
     list_destroy_and_destroy_elements(proc->instrucciones, free);
-    list_destroy_and_destroy_elements(proc->segmentos_suspendidos, free);
+    list_destroy_and_destroy_elements(proc->segmentos_suspendidos, destruir_segmento_swap);
     free(proc);
 
     log_info(logger, "## PID: %u - Proceso finalizado y memoria liberada", pid);
     enviar_opcode(cliente, RESPUESTA_OK);
 }
 
-// ── Suspensión / Des-suspensión: esqueleto para entrega final ────
+// ── Suspensión / Des-suspensión ───────────────────────────────────
 
+// mueve, de a 1, cada segmento del proceso desde los Memory Sticks hacia
+// bloques del modulo SWAP, liberando la memoria principal a medida que
+// cada segmento queda copiado.
 void op_suspender_proceso(int cliente)
 {
-    // TODO entrega final: mover segmentos a SWAP, liberar sticks
-    uint32_t pid;
-    recibir_uint32(cliente, &pid);
-    log_info(logger, "## PID: %u - Suspensión (pendiente entrega final)", pid);
-    enviar_opcode(cliente, RESPUESTA_OK);
-}
-
-void op_reanudar_proceso(int cliente)
-{
-    // TODO entrega final: restaurar segmentos desde SWAP
     uint32_t pid;
     recibir_uint32(cliente, &pid);
 
@@ -701,45 +781,163 @@ void op_reanudar_proceso(int cliente)
 
     pthread_mutex_lock(&g_mutex_procesos);
     t_proceso_memoria* proc = dictionary_get(g_procesos, key);
-    if (!proc) {
-        pthread_mutex_unlock(&g_mutex_procesos);
+    pthread_mutex_unlock(&g_mutex_procesos);
+
+    if (!proc) { enviar_opcode(cliente, RESPUESTA_ERROR); return; }
+
+    if (g_socket_swap == -1) {
+        log_error(logger, "## PID: %u - No es posible suspender: SWAP no conectado", pid);
         enviar_opcode(cliente, RESPUESTA_ERROR);
         return;
     }
 
-    // verificar que haya espacio para todos los segmentos
+    t_list* segmentos          = proc->contexto.tabla_segmentos;
+    t_list* nuevos_suspendidos = list_create();
+    void*   buffer_bloque      = malloc(g_swap_block_size);
+    bool    ok                 = true;
+
+    for (int i = 0; i < (int)list_size(segmentos) && ok; i++) {
+        t_segmento* seg = list_get(segmentos, i);
+        uint32_t cant_bloques = (seg->limite + g_swap_block_size - 1) / g_swap_block_size;
+
+        t_list* bloques = asignar_bloques_swap(cant_bloques);
+        if (!bloques) {
+            log_error(logger, "## PID: %u - Espacio de SWAP insuficiente", pid);
+            ok = false;
+            break;
+        }
+
+        void* datos = leer_de_sticks(seg->base, seg->limite);
+        if (!datos) {
+            liberar_bloques_swap(bloques);
+            ok = false;
+            break;
+        }
+
+        for (uint32_t b = 0; b < cant_bloques && ok; b++) {
+            uint32_t offset   = b * g_swap_block_size;
+            uint32_t restante = seg->limite - offset;
+            uint32_t copiar   = (restante < g_swap_block_size) ? restante : g_swap_block_size;
+
+            memset(buffer_bloque, 0, g_swap_block_size);
+            memcpy(buffer_bloque, (char*)datos + offset, copiar);
+
+            uint32_t* num_bloque = list_get(bloques, b);
+            if (escribir_bloque_swap(*num_bloque, buffer_bloque) != 0) {
+                log_error(logger, "## PID: %u - Error escribiendo bloque de SWAP %u",
+                          pid, *num_bloque);
+                ok = false;
+            }
+        }
+        free(datos);
+
+        if (!ok) { liberar_bloques_swap(bloques); break; }
+
+        liberar_segmento(seg->base, seg->limite);
+
+        t_segmento_swap* ss = malloc(sizeof(t_segmento_swap));
+        ss->id_segmento = seg->id_segmento;
+        ss->tamanio     = seg->limite;
+        ss->bloques     = bloques;
+        list_add(nuevos_suspendidos, ss);
+    }
+    free(buffer_bloque);
+
+    if (!ok) {
+        list_destroy_and_destroy_elements(nuevos_suspendidos, destruir_segmento_swap);
+        enviar_opcode(cliente, RESPUESTA_ERROR);
+        return;
+    }
+
+    pthread_mutex_lock(&g_mutex_procesos);
+    list_destroy_and_destroy_elements(proc->contexto.tabla_segmentos, free);
+    proc->contexto.tabla_segmentos = list_create();
+    for (int i = 0; i < (int)list_size(nuevos_suspendidos); i++)
+        list_add(proc->segmentos_suspendidos, list_get(nuevos_suspendidos, i));
+    list_destroy(nuevos_suspendidos);
+    pthread_mutex_unlock(&g_mutex_procesos);
+
+    log_info(logger, "## PID: %u - Proceso suspendido, memoria movida a SWAP", pid);
+    enviar_opcode(cliente, RESPUESTA_OK);
+}
+
+// restaura todos los segmentos suspendidos desde SWAP hacia memoria
+// principal, usando el algoritmo de busqueda de huecos configurado,
+// y regenera la tabla de segmentos del contexto.
+void op_reanudar_proceso(int cliente)
+{
+    uint32_t pid;
+    recibir_uint32(cliente, &pid);
+
+    char key[20];
+    snprintf(key, sizeof(key), "%u", pid);
+
+    pthread_mutex_lock(&g_mutex_procesos);
+    t_proceso_memoria* proc = dictionary_get(g_procesos, key);
+    pthread_mutex_unlock(&g_mutex_procesos);
+
+    if (!proc) { enviar_opcode(cliente, RESPUESTA_ERROR); return; }
+
+    t_list* pendientes = proc->segmentos_suspendidos;
+
+    // verificar que haya espacio para todos los segmentos antes de mover nada
     pthread_mutex_lock(&g_mutex_huecos);
-    for (int i = 0; i < (int)list_size(proc->segmentos_suspendidos); i++) {
-        t_segmento* seg = list_get(proc->segmentos_suspendidos, i);
-        if (seleccionar_hueco(seg->limite) == -1) {
+    for (int i = 0; i < (int)list_size(pendientes); i++) {
+        t_segmento_swap* ss = list_get(pendientes, i);
+        if (seleccionar_hueco(ss->tamanio) == -1) {
             pthread_mutex_unlock(&g_mutex_huecos);
-            pthread_mutex_unlock(&g_mutex_procesos);
             enviar_opcode(cliente, RESPUESTA_ERROR);
             return;
         }
     }
-
-    // reasignar memoria para cada segmento
-    for (int i = 0; i < (int)list_size(proc->segmentos_suspendidos); i++) {
-        t_segmento* seg = list_get(proc->segmentos_suspendidos, i);
-        int idx = seleccionar_hueco(seg->limite);
-        uint32_t nueva_base = ocupar_hueco(idx, seg->limite);
-
-        t_segmento* nuevo = malloc(sizeof(t_segmento));
-        nuevo->id_segmento = seg->id_segmento;
-        nuevo->base        = nueva_base;
-        nuevo->limite      = seg->limite;
-        list_add(proc->contexto.tabla_segmentos, nuevo);
-    }
     pthread_mutex_unlock(&g_mutex_huecos);
 
-    // limpiar segmentos suspendidos
-    list_destroy_and_destroy_elements(proc->segmentos_suspendidos, free);
-    proc->segmentos_suspendidos = list_create();
+    t_list* nuevos_segmentos = list_create();
+    void*   buffer_bloque    = malloc(g_swap_block_size);
 
+    for (int i = 0; i < (int)list_size(pendientes); i++) {
+        t_segmento_swap* ss = list_get(pendientes, i);
+
+        pthread_mutex_lock(&g_mutex_huecos);
+        int      idx       = seleccionar_hueco(ss->tamanio);
+        uint32_t nueva_base = ocupar_hueco(idx, ss->tamanio);
+        pthread_mutex_unlock(&g_mutex_huecos);
+
+        for (int b = 0; b < (int)list_size(ss->bloques); b++) {
+            uint32_t* num_bloque = list_get(ss->bloques, b);
+            if (leer_bloque_swap(*num_bloque, buffer_bloque) != 0) {
+                log_error(logger, "## PID: %u - Error leyendo bloque de SWAP %u",
+                          pid, *num_bloque);
+                continue;
+            }
+            uint32_t offset   = b * g_swap_block_size;
+            uint32_t restante = ss->tamanio - offset;
+            uint32_t copiar   = (restante < g_swap_block_size) ? restante : g_swap_block_size;
+
+            escribir_en_sticks(nueva_base + offset, buffer_bloque, copiar);
+        }
+
+        liberar_bloques_swap(ss->bloques);
+
+        t_segmento* seg = malloc(sizeof(t_segmento));
+        seg->id_segmento = ss->id_segmento;
+        seg->base        = nueva_base;
+        seg->limite      = ss->tamanio;
+        list_add(nuevos_segmentos, seg);
+
+        free(ss);
+    }
+    free(buffer_bloque);
+
+    pthread_mutex_lock(&g_mutex_procesos);
+    for (int i = 0; i < (int)list_size(nuevos_segmentos); i++)
+        list_add(proc->contexto.tabla_segmentos, list_get(nuevos_segmentos, i));
+    list_destroy(nuevos_segmentos);
+    list_destroy(proc->segmentos_suspendidos);
+    proc->segmentos_suspendidos = list_create();
     pthread_mutex_unlock(&g_mutex_procesos);
 
-    log_info(logger, "## PID: %u - Proceso reanudado, memoria restaurada", pid);
+    log_info(logger, "## PID: %u - Proceso reanudado, memoria restaurada desde SWAP", pid);
     enviar_opcode(cliente, RESPUESTA_OK);
 }
 
@@ -752,6 +950,41 @@ void* atender_cliente(void* arg)
     free(args);
 
     int32_t modulo = handshake_servidor(cliente, logger);
+    bool es_notificaciones = false;
+
+    // swap: se conecta una unica vez e informa block_size y tamanio total
+    if (modulo == MODULO_SWAP) {
+        uint32_t block_size, total_size;
+        recibir_uint32(cliente, &block_size);
+        recibir_uint32(cliente, &total_size);
+
+        g_swap_block_size    = block_size;
+        g_swap_total_bloques = (block_size > 0) ? (total_size / block_size) : 0;
+
+        pthread_mutex_lock(&g_mutex_bloques_swap);
+        g_bloques_libres = list_create();
+        for (uint32_t i = 0; i < g_swap_total_bloques; i++) {
+            uint32_t* b = malloc(sizeof(uint32_t));
+            *b = i;
+            list_add(g_bloques_libres, b);
+        }
+        pthread_mutex_unlock(&g_mutex_bloques_swap);
+
+        g_socket_swap = cliente;
+        log_info(logger, "## Modulo SWAP Conectado - %u bloques de %u bytes",
+                 g_swap_total_bloques, block_size);
+
+        // este hilo solo se usa para detectar la desconexion; las
+        // operaciones SW_LEER/SW_ESCRIBIR se disparan sincrónicamente
+        // desde los hilos que atienden pedidos de suspension/reanudacion.
+        op_code op;
+        while (recibir_opcode(cliente, &op) > 0);
+
+        log_error(logger, "## Modulo SWAP desconectado");
+        g_socket_swap = -1;
+        close(cliente);
+        return NULL;
+    }
 
     // memory stick
     if (modulo == MODULO_MEMORY_STICK) {
@@ -812,7 +1045,7 @@ void* atender_cliente(void* arg)
     // el scheduler se conecta dos veces: 1ª = socket de operaciones,
     // 2ª = socket de notificaciones (el KS se conecta, espera mensajes async)
     if (modulo == MODULO_KERNEL_SCHEDULER) {
-        bool es_notificaciones = (g_socket_ks_operaciones != -1);
+        es_notificaciones = (g_socket_ks_operaciones != -1);
 
         if (!es_notificaciones) {
             g_socket_ks_operaciones = cliente;
@@ -860,6 +1093,7 @@ void* atender_cliente(void* arg)
             default:
                 log_error(logger, "## Operacion desconocida: %d", operacion);
                 break;
+        }
         }
     }
 

@@ -49,6 +49,10 @@ typedef enum {
     //MS_LIBERAR,
     MS_LEER,
     MS_ESCRIBIR,
+
+    //mensajes swap
+    SW_LEER,
+    SW_ESCRIBIR,
 } op_code;
 
 typedef enum { // DUDA: Por qué tiene los valores hardcodeados?
