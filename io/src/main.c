@@ -29,7 +29,10 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
     // creo logger
-    t_log* logger = log_create("io.log", "IO", 1, LOG_LEVEL_INFO);
+    char* log_level_str = config_get_string_value(config, "LOG_LEVEL");
+    t_log_level log_level = log_level_from_string(log_level_str);
+    t_log* logger = log_create("io.log", "IO", 1, log_level);
+
     log_info(logger, "INICIANDO MODULO IO");
     // obtengo tipo
     tipo_io tipo = get_tipo_io(argv[2]);
@@ -88,8 +91,7 @@ int main(int argc, char* argv[]) {
         if(codigo == IO_EJECUTAR)
         {
             uint32_t pid;
-            char mensaje[BUFFER_SIZE];
-            memset(mensaje, 0, BUFFER_SIZE);
+
             // PID
             log_info(logger, "Recibiendo PID...");
             if(recibir_uint32(conexion, &pid) <= 0)
@@ -101,9 +103,17 @@ int main(int argc, char* argv[]) {
 
             // PARAMETROS
             log_info(logger, "Recibiendo parametros IO...");
-            if(recibir_string(conexion, mensaje, BUFFER_SIZE) <= 0)
+            uint32_t msg_len;
+            if(recibir_uint32(conexion, &msg_len) <= 0)
+            {
+                log_error(logger, "Error recibiendo longitud del mensaje IO");
+                break;
+            }
+            char* mensaje = calloc(msg_len + 1, 1);
+            if(recv(conexion, mensaje, msg_len, MSG_WAITALL) <= 0)
             {
                 log_error(logger, "Error recibiendo parametros IO");
+                free(mensaje);
                 break;
             }
             log_info(logger, "Parametros recibidos: %s", mensaje);
@@ -131,6 +141,8 @@ int main(int argc, char* argv[]) {
             log_info(logger, "## PID: %d - Fin de IO", pid);
             enviar_opcode(conexion, RESPUESTA_OK);
             log_info(logger, "## PID: %d - IO_FINALIZADA enviada", pid);
+
+            free(mensaje);
         }
         else
         {

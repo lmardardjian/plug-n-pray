@@ -2,7 +2,7 @@
 #include "scheduler.h"
 #include "mutex_manager.h"
 #include "utils/conexion.h"
-#include "corto_plazo.h"
+#include "planificador.h"
 #include <string.h>
 
 
@@ -18,6 +18,12 @@ void inicializar_ks_mutex_manager() {
 //Crea Mutex
 
 t_mutex_kernel* crear_mutex(char* nombre) {
+
+    t_mutex_kernel* existente = buscar_mutex(nombre);
+    if (existente != NULL) {
+        log_warning(logger, "MUTEX_CREATE: el mutex '%s' ya existe, se ignora.", nombre);
+        return existente;
+    }
 
     t_mutex_kernel* nuevo = malloc(sizeof(t_mutex_kernel));
 
@@ -92,7 +98,7 @@ bool mutex_lock(char* nombre, t_pcb* proceso) {
         if (duenio->estado == ESTADO_READY) {
             t_pcb* p = quitar_de_ready_por_pid(duenio->pid);
             if (p != NULL)
-                agregar_al_principio_de_ready(p);
+                reinsertar_al_principio_de_ready(p);
         }
     }
 
@@ -121,6 +127,12 @@ void mutex_unlock(char* nombre) {
 
     t_pcb* duenio_anterior = mutex->duenio;
 
+    if (duenio_anterior == NULL) {
+        pthread_mutex_unlock(&mutex->mutex_interno);
+        log_warning(logger, "MUTEX_UNLOCK: mutex '%s' no tenía dueño.", nombre);
+        return;
+    }
+
     //No hay bloqueados
     if(queue_is_empty(mutex->bloqueados)) {
 
@@ -129,9 +141,7 @@ void mutex_unlock(char* nombre) {
         pthread_mutex_unlock(&mutex->mutex_interno);
 
         if (duenio_anterior->prioridad != duenio_anterior->prioridad_original) {
-            log_info(logger, "## %d Cambio de prioridad: %d - %d",
-                     duenio_anterior->pid, duenio_anterior->prioridad,
-                     duenio_anterior->prioridad_original);
+            log_info(logger, "## %d Cambio de prioridad: %d - %d", duenio_anterior->pid, duenio_anterior->prioridad, duenio_anterior->prioridad_original);
             duenio_anterior->prioridad = duenio_anterior->prioridad_original;
         }
         return;
@@ -143,9 +153,7 @@ void mutex_unlock(char* nombre) {
     pthread_mutex_unlock(&mutex->mutex_interno);
 
     if (duenio_anterior->prioridad != duenio_anterior->prioridad_original) {
-        log_info(logger, "## %d Cambio de prioridad: %d - %d",
-                 duenio_anterior->pid, duenio_anterior->prioridad,
-                 duenio_anterior->prioridad_original);
+        log_info(logger, "## %d Cambio de prioridad: %d - %d", duenio_anterior->pid, duenio_anterior->prioridad, duenio_anterior->prioridad_original);
         duenio_anterior->prioridad = duenio_anterior->prioridad_original;
     }
 
@@ -171,6 +179,9 @@ void  manejar_syscall_mutex_lock(int socket_cpu, t_pcb* proceso) {
 
     if(conseguido) {
         log_info(logger, "## (%d) Toma el Mutex %s", proceso->pid, nombre_mutex);
+        //el proceso sigue corriendo en la misma CPU: recrear el timer y reenviarle el PID para que ciclo_instruccion continue.
+        recrear_timer(socket_cpu, proceso);
+        enviar_uint32(socket_cpu, proceso->pid);
     }
     else {
         log_info(logger, "## (%d) bloqueado esperando mutex %s", proceso->pid,nombre_mutex);

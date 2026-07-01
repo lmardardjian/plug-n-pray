@@ -33,6 +33,8 @@ extern bool hay_desalojo_cmn;
 
 extern uint32_t suspension_timeout;
 
+extern char* algoritmo;
+
 extern t_log* logger;
 
 void inicializar_ks_planificador();
@@ -58,6 +60,8 @@ t_pcb* quitar_de_susp_block_por_pid(uint32_t pid);
 void* hilo_suspension(void* arg);
 void intentar_reanudar_proceso();
 void registrar_cpu_proceso(int socket_cpu_ejecutando, uint32_t pid);
+
 int obtener_socket_cpu_de(uint32_t pid);
+int32_t obtener_pid_de_cpu(int socket_cpu);
 
 #endif

@@ -2,7 +2,7 @@
 #include "scheduler.h"
 #include "IO_manager.h"
 #include "utils/hilos.h"
-#include "corto_plazo.h"
+#include "planificador.h"
 #include "mutex_manager.h"
 #include <commons/config.h>
 #include <sys/socket.h>
@@ -29,6 +29,8 @@ sem_t sem_compactacion; //semáforo productor-consumidor del hilo dispatcher par
 
 bool desalojo_por_compactacion = false;
 pthread_mutex_t mutex_desalojo_compactacion;
+
+sem_t sem_desalojo_ok; //sincroniza desalojo de CPUs con la confirmación de compactación al KM.
 
 char* algoritmo; //algortimo de planificación de procesos.
 char** queues_algoritmos; //cola de algoritmos de planificación de procesos para cada prioridad (solo si estamos en CMN).
@@ -105,7 +107,7 @@ void* atender_cpu(void* arg) {
                 break;
 
             case KS_INIT_PROC: 
-                manejar_iniciar_proceso(socket_cpu, socket_kernel_memory_operaciones);
+                manejar_iniciar_proceso(socket_cpu, socket_kernel_memory_operaciones, proceso);
                 break;
 
             default:
@@ -113,6 +115,22 @@ void* atender_cpu(void* arg) {
                 break;
         }
     }
+
+    cancelar_timer(socket_cpu);
+
+    // Si había un proceso corriendo en esta CPU, rescatarlo a READY.
+    int32_t pid_en_cpu = obtener_pid_de_cpu(socket_cpu);
+    if (pid_en_cpu >= 0) {
+        t_pcb* rescatado = encontrar_proceso_global((uint32_t)pid_en_cpu);
+        if (rescatado != NULL) {
+            log_warning(logger, "## CPU %d desconectada con PID %d en ejecución. Proceso rescatado a READY.", socket_cpu, pid_en_cpu);
+            quitar_de_exec((uint32_t)pid_en_cpu);
+            cambiar_estado(rescatado, ESTADO_READY, logger);
+            agregar_a_ready(rescatado);
+        }
+    }
+    close(socket_cpu);
+    return NULL;
 }
 
 // ------------------------------------- Aceptar CPUs e IOs -------------------------------------
@@ -179,17 +197,19 @@ void* escuchar_kernel_memory(void* arg) {
             case KM_NOTIF_COMPACTAR:
                 sem_wait(&sem_compactacion);
 
-                log_info(logger, "## Inicio de compactacion");
-
                 pthread_mutex_lock(&mutex_desalojo_compactacion);
 
                 desalojo_por_compactacion = true;
 
                 pthread_mutex_unlock(&mutex_desalojo_compactacion);
 
+                // Contar cuántas CPUs hay en ejecución y marcarlas para desalojar.
+                int cpus_a_desalojar = 0;
+
                 pthread_mutex_lock(&mutex_exec);
-                //desalojo todas las CPUs.
-                for (int i = 0; i < list_size(lista_exec); i++) {
+
+                cpus_a_desalojar = list_size(lista_exec);
+                for (int i = 0; i < cpus_a_desalojar; i++) {
                     t_pcb* en_exec = list_get(lista_exec, i);
                     int socket_cpu_exec = obtener_socket_cpu_de(en_exec->pid);
                     if (socket_cpu_exec != -1)
@@ -197,8 +217,18 @@ void* escuchar_kernel_memory(void* arg) {
                 }
                 pthread_mutex_unlock(&mutex_exec);
 
-                // confirmar al KM que puede compactar
-                enviar_opcode(socket_km_notificaciones, KM_COMPACTACION_OK);
+                //espero a que TODAS las CPUs marcadas confirmen su desalojo. Cada una hace sem_post(&sem_desalojo_ok) en manejar_tick_progress.
+                for (int i = 0; i < cpus_a_desalojar; i++)
+                    sem_wait(&sem_desalojo_ok);
+
+                log_info(logger, "## Inicio de compactación");
+
+                //confirmar al KM que puede compactar.
+                pthread_mutex_lock(&mutex_socket_km_operaciones);
+    
+                enviar_opcode(socket_kernel_memory_operaciones, KM_COMPACTACION_OK);
+
+                pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
                 pthread_mutex_lock(&mutex_desalojo_compactacion);
 
@@ -229,6 +259,7 @@ static void inicializar_ks_estructuras() {
     pthread_mutex_init(&mutex_socket_km_operaciones, NULL);
 
     sem_init(&sem_compactacion, 0, 1);
+    sem_init(&sem_desalojo_ok, 0, 0);
     sem_init(&sem_bsod, 0, 0);
 }
 

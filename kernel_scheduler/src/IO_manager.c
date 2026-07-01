@@ -103,6 +103,7 @@ static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_fisica, char* d
     enviar_uint32(socket_kernel_memory_operaciones, pid);
     enviar_uint32(socket_kernel_memory_operaciones, dir_fisica);
     enviar_uint32(socket_kernel_memory_operaciones, size);
+    enviar_buffer(socket_kernel_memory_operaciones, datos, size);
 
     op_code ack;
     if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0 || ack == RESPUESTA_ERROR) {
@@ -127,22 +128,34 @@ static void* hilo_io_listener(void* arg) {
     t_io_interfaz* io = (t_io_interfaz*) arg;
 
     while (1) {
-        pthread_mutex_lock(&io->mutex_req);
+        sem_wait(&io->sem_requests);
 
-        //obtengo la request en vuelo.
-        t_io_request req_copia = io->req_en_vuelo;
+        pthread_mutex_lock(&io->mutex_cola);
 
-        pthread_mutex_unlock(&io->mutex_req);
+        t_io_request* req = queue_pop(io->cola_requests);
 
-        //obtengo el pid del proceso.
-        uint32_t pid_finalizado = req_copia.pid;
+        pthread_mutex_unlock(&io->mutex_cola);
+
+        if (req == NULL) {
+            log_error(io->logger, "## IO %s: sem indicó request pero la cola estaba vacía.", io->nombre);
+            continue;
+        }
+
+        uint32_t pid_finalizado = req->pid;
 
         //si el tipo del IO era STDIN, escribo en memoria lo solicitado.
         if (io->tipo == TIPO_IO_STDIN) {
             char buffer[BUFFER_SIZE];
             memset(buffer, 0, BUFFER_SIZE);
-            recibir_string(io->socket_fd, buffer, BUFFER_SIZE);
-
+            if (recibir_string(io->socket_fd, buffer, BUFFER_SIZE) <= 0) {
+                log_error(io->logger, "## IO %s desconectada leyendo STDIN de PID %u", io->nombre, pid_finalizado);
+                
+                if (req->datos != NULL)
+                    free(req->datos);
+                
+                free(req);
+                break;
+            }
             escribir_en_kernel_memory(pid_finalizado, req_copia.dir_fisica, buffer, req_copia.size, io->logger);
         }
 
@@ -150,17 +163,29 @@ static void* hilo_io_listener(void* arg) {
         op_code respuesta;
         if (recibir_opcode(io->socket_fd, &respuesta) <= 0) {
             log_error(io->logger, "IO %s (%s) desconectada", io->nombre, tipo_io_to_string(io->tipo));
+            
+            //libero el campo datos de req solo cuando venimos del caos STDOUT.
+            if (req->datos != NULL)
+                free(req->datos);
+            
+            free(req);  
             break;
         }
 
         if (respuesta == RESPUESTA_ERROR) {
             log_error(io->logger, "IO %s reportó error para PID %d", io->nombre, pid_finalizado);
+            
+            //libero el campo datos de req solo cuando venimos del caos STDOUT.
+            if (req->datos != NULL)
+                free(req->datos);
+            
+            free(req);
             break;
         }
 
         log_info(io->logger, "## (%d) finalizó IO y pasa a READY / SUSP. READY", pid_finalizado);
 
-        //libero el campo datos de req.copia solo cuando venimos del caos STDOUT.
+        //libero el campo datos de req solo cuando venimos del caos STDOUT.
         if (req_copia.datos != NULL)
             free(req_copia.datos);
 
@@ -183,6 +208,39 @@ static void* hilo_io_listener(void* arg) {
             }
         }
     }
+
+    //dreno request pendientes en la cola para no filtrar memoria. Los procesos quedan en block y eventualmente van a susp_block, no se pierden.
+    pthread_mutex_lock(&io->mutex_cola);
+
+    while (!queue_is_empty(io->cola_requests)) {
+        t_io_request* pendiente = queue_pop(io->cola_requests);
+        log_warning(io->logger, "## IO %s desconectada con PID %u aún pendiente.", io->nombre, pendiente->pid);
+        
+        if (pendiente->datos != NULL)
+            free(pendiente->datos);
+        
+        free(pendiente);
+    }
+    pthread_mutex_unlock(&io->mutex_cola);
+
+    //la interfaz se desconectó. Removerla de la lista para permitir que una nueva del mismo tipo pueda registrarse.
+    log_error(io->logger, "## IO %s (%s) desconectada. Removiendo del registro.", io->nombre, tipo_io_to_string(io->tipo));
+
+    pthread_mutex_lock(&s_mutex_interfaces);
+    
+    for (int i = 0; i < list_size(s_interfaces); i++) {
+        if (list_get(s_interfaces, i) == io) {
+            list_remove(s_interfaces, i);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&s_mutex_interfaces);
+
+    close(io->socket_fd);
+    free(io->nombre);
+    pthread_mutex_destroy(&io->mutex_req);
+    free(io);
+
     return NULL;
 }
 
@@ -197,13 +255,14 @@ void io_registrar_interfaz(const char* nombre, tipo_io tipo, int socket_fd, t_lo
         io->tipo = tipo;
         io->socket_fd = socket_fd;
         io->logger = logger;
-        memset(&io->req_en_vuelo, 0, sizeof(t_io_request));
 
-        pthread_mutex_init(&io->mutex_req, NULL);
-
-        pthread_mutex_lock(&s_mutex_interfaces);
+        io->cola_requests = queue_create();
+        pthread_mutex_init(&io->mutex_cola, NULL);
+        sem_init(&io->sem_requests, 0, 0);
 
         //la agrego a la lista de interfaces.
+        pthread_mutex_lock(&s_mutex_interfaces);
+
         list_add(s_interfaces, io);
 
         pthread_mutex_unlock(&s_mutex_interfaces);
@@ -242,11 +301,17 @@ void manejar_syscall_io(t_pcb* proceso, t_io_request* req, int socket_cpu, t_log
     if (req->tipo == TIPO_IO_STDOUT) 
         req->datos = leer_de_kernel_memory(proceso->pid, req->dir_fisica, req->size, logger);
 
-    pthread_mutex_lock(&io->mutex_req);
+    //copio al heap para que la cola sea dueña de la request.
+    t_io_request* req_heap = malloc(sizeof(t_io_request));
+    *req_heap = *req;
 
-    io->req_en_vuelo = *req;
-    
-    pthread_mutex_unlock(&io->mutex_req);
+    pthread_mutex_lock(&io->mutex_cola);
 
+    queue_push(io->cola_requests, req_heap);
     enviar_a_io(io, req);
+
+    pthread_mutex_unlock(&io->mutex_cola);
+
+    //aviso al listener que hay una request esperando respuesta.
+    sem_post(&io->sem_requests);
 }

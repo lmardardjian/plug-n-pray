@@ -22,8 +22,9 @@ typedef struct {
     int socket_fd;
     t_log *logger;
 
-    t_io_request req_en_vuelo;
-    pthread_mutex_t mutex_req;
+    t_queue* cola_requests;
+    pthread_mutex_t mutex_cola;
+    sem_t sem_requests;
 } t_io_interfaz;
 
 void inicializar_io_manager();

@@ -1,5 +1,5 @@
-#ifndef CORTO_PLAZO_H
-#define CORTO_PLAZO_H
+#ifndef planificador_H
+#define planificador_H
 
 #include "pcb.h"
 #include <commons/config.h>
@@ -21,6 +21,8 @@ extern sem_t sem_compactacion;
 
 extern bool desalojo_por_compactacion;
 extern pthread_mutex_t mutex_desalojo_compactacion;
+
+extern sem_t sem_desalojo_ok;
 
 extern char* algoritmo;
 extern char** queues_algoritmos;
@@ -50,10 +52,12 @@ void manejar_syscall_mutex_create(int socket_cpu, t_pcb* proceso);
 void manejar_syscall_mem_alloc(int socket_cpu, t_pcb* proceso);
 void manejar_syscall_mem_free(int socket_cpu, t_pcb* proceso);
 void manejar_syscall_exit(int socket_cpu, t_pcb* proceso);
-void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operaciones);
+void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operaciones, t_pcb* llamador);
 
-void marcar_interrupcion(int socket_cpu);
+void recrear_timer(int socket_cpu, t_pcb* proceso);
 
 void cancelar_timer(int socket_cpu);
+
+void marcar_interrupcion(int socket_cpu);
 
 #endif

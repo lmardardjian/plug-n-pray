@@ -31,6 +31,7 @@ t_pcb* encontrar_proceso_global(uint32_t pid) {
 
 void destruir_pcb(void* ptr) {
     t_pcb* elem = (t_pcb*) ptr;
+    pthread_mutex_destroy(&elem->mutex_estado);
     free(ptr);
 }
 

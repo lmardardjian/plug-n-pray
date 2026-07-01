@@ -94,14 +94,30 @@ int obtener_socket_cpu_de(uint32_t pid) {
     return resultado;
 }
 
+int32_t obtener_pid_de_cpu(int socket_cpu) {
+    pthread_mutex_lock(&mutex_cpu_proceso);
+    int32_t resultado = -1;
+    for (int i = 0; i < list_size(lista_cpu_proceso); i++) {
+        t_cpu_proceso* entry = list_get(lista_cpu_proceso, i);
+        if (entry->socket_cpu == socket_cpu) {
+            resultado = (int32_t)entry->pid;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&mutex_cpu_proceso);
+    return resultado;
+}
+
 void agregar_a_ready(t_pcb* proceso) {
 
     pthread_mutex_lock(&mutex_ready);
 
-    if(proceso->prioridad < cant_prioridades) {
-        queue_push(colas_ready[proceso->prioridad], proceso);
+    int nivel = (strcmp(algoritmo, "CMN") == 0) ? (int)proceso->prioridad : 0;
+
+    if(nivel < cant_prioridades) {
+        queue_push(colas_ready[nivel], proceso);
     } else {
-        log_warning(logger, "El proceso %d tiene una prioridad implanificable", proceso->prioridad);
+        log_warning(logger, "El proceso %d tiene una prioridad implanificable", proceso->pid);
     }
 
     pthread_mutex_unlock(&mutex_ready);
@@ -131,17 +147,31 @@ void agregar_al_principio_de_ready(t_pcb* proceso){ //cambia con herencia
 
     pthread_mutex_lock(&mutex_ready);
 
-    if(proceso->prioridad < cant_prioridades) {
+    int nivel = (strcmp(algoritmo, "CMN") == 0) ? (int)proceso->prioridad : 0;
 
-        t_queue* cola = colas_ready[proceso->prioridad];
-        list_add_in_index(cola->elements, 0, proceso); //inserta al frente de la cola de su prioridad.
+    if(nivel < cant_prioridades) {
+        t_queue* cola = colas_ready[nivel];
+        list_add_in_index(cola->elements, 0, proceso);
     } else {
-        log_warning(logger, "El proceso %d tiene una prioridad implanificable", proceso->prioridad);
+        log_warning(logger, "El proceso %d tiene una prioridad implanificable", proceso->pid);
     }
 
     pthread_mutex_unlock(&mutex_ready);
 
     sem_post(&sem_procesos_en_ready); //avisa que hay un proceso en colas_ready.
+}
+
+void reinsertar_al_principio_de_ready(t_pcb* proceso) {
+    pthread_mutex_lock(&mutex_ready);
+
+    int nivel = (strcmp(algoritmo, "CMN") == 0) ? (int)proceso->prioridad : 0;
+
+    if(nivel < cant_prioridades) {
+        t_queue* cola = colas_ready[nivel];
+        list_add_in_index(cola->elements, 0, proceso);
+    }
+    pthread_mutex_unlock(&mutex_ready);
+    //Sin sem_post: el proceso ya tiene su token del sem de cuando entró a ready.
 }
 
 t_pcb* quitar_de_ready_por_pid(uint32_t pid) {
@@ -211,6 +241,12 @@ t_pcb* quitar_de_block(uint32_t pid) {
         }
     }
     pthread_mutex_unlock(&mutex_block);
+
+    //liberaro el temporal del BLOCK. En el camino de SUSP_BLOCK lo destruye quitar_de_susp_block, así que no hay doble free.
+    if (encontrado != NULL) {
+        temporal_destroy(encontrado->tiempo_susp);
+        encontrado->tiempo_susp = NULL;
+    }
 
     return encontrado;
 }
@@ -399,8 +435,9 @@ void* hilo_suspension(void* arg) {
     t_pcb* proceso = (t_pcb*) arg;
     usleep(suspension_timeout * 1000);
 
-    if (proceso->estado != ESTADO_BLOCK)
-        //el listener ya lo movió a READY. No hacer nada.
+    //si devuelve NULL, el listener ya sacó al proceso de BLOCK entonces no hay que hacer nada.
+    t_pcb* encontrado = quitar_de_block(proceso->pid);
+    if (encontrado == NULL)
         return NULL;
 
     //todavía en BLOCK. Suspender.
