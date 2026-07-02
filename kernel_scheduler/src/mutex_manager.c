@@ -4,7 +4,7 @@
 #include "utils/conexion.h"
 #include "planificador.h"
 #include <string.h>
-
+#include "utils/constantes.h"
 
 extern t_log* logger;
 t_list* lista_mutexes;
@@ -165,7 +165,7 @@ void mutex_unlock(char* nombre) {
 
 void  manejar_syscall_mutex_lock(int socket_cpu, t_pcb* proceso) {
 
-    char nombre_mutex[64];  //mmmm magic number
+    char nombre_mutex[MAX_NOMBRE_MUTEX];
 
     uint32_t tipo_inst;
     char param2[32] = {0};
@@ -194,7 +194,7 @@ void  manejar_syscall_mutex_lock(int socket_cpu, t_pcb* proceso) {
 
 void manejar_syscall_mutex_unlock (int socket_cpu, t_pcb* proceso) {
 
-    char nombre_mutex[64]; //mmm magic number
+    char nombre_mutex[MAX_NOMBRE_MUTEX];
 
     uint32_t tipo_inst;
     char param2[32] = {0};

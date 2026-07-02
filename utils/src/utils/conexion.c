@@ -86,8 +86,12 @@ int recibir_string(int conexion, char* buffer, int max_size)
     uint32_t length;
     recibir_uint32(conexion, &length);
     
-    if(length > max_size) 
+    if(length > max_size) {
+        void* descarte = malloc(length);
+        recv(conexion, descarte, length, MSG_WAITALL);
+        free(descarte);
         return -1;
+    }
 
     return recv(conexion, buffer, length, MSG_WAITALL);
 }

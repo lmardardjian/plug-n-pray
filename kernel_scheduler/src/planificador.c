@@ -393,7 +393,7 @@ void manejar_syscall_exit(int socket_cpu, t_pcb* proceso) {
 
 void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operaciones, t_pcb* llamador) {
     //creo y hago uso de las variables necesarias para recibir los parámetros (es una syscall pero tiene un protocolo distinto).
-    char path[256] = {0}; //mmm magic number BUFFER_SIZE?
+    char path[BUFFER_SIZE] = {0};
     uint32_t prioridad;
     recibir_string(socket_cpu, path, sizeof(path));
     recibir_uint32(socket_cpu, &prioridad);
@@ -464,7 +464,7 @@ void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {
     //me fijo si hay alguna interrupción por acatar.
     if (consumir_interrupcion(socket_cpu)) {
         //Le aviso a la CPU que pare.
-        enviar_uint32(socket_cpu, 1); //mmm magic number
+        enviar_uint32(socket_cpu, HAY_INTERRUPCION);
 
         //cancelo su timer y muevo a ready al proceso que estaba ejecutando.
         cancelar_timer(socket_cpu);
@@ -491,7 +491,7 @@ void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {
 
     } else {
         //no hay interrupción. Aviso a la cpu que siga.
-        enviar_uint32(socket_cpu, 0); //mmm magic number
+        enviar_uint32(socket_cpu, SIN_INTERRUPCION);
     }
 }
 

@@ -12,6 +12,8 @@
 
 #include "cpu.h"
 
+#include "utils/constantes.h"
+
 int main(int argc, char* argv[]) {
     if (argc < 3) {
         printf("Uso: ./cpu [config] [identificador]\n"); //raro este string
@@ -25,7 +27,7 @@ int main(int argc, char* argv[]) {
     }
 
     // LOGGER
-    char nombre_log[64]; //mmmm magic number?
+    char nombre_log[MAX_NOMBRE_LOG];
     snprintf(nombre_log, sizeof(nombre_log), "cpu_%s.log", argv[2]);
 
     t_log* logger = log_create(nombre_log, "CPU", true, LOG_LEVEL_INFO);

@@ -5,6 +5,9 @@
 #include <commons/collections/list.h>
 
 typedef enum {
+    //centinela. Toma el valor 0 para que no haya op_code con este valor.
+    MENSAJE,
+
     //mensajes io
     IO_EJECUTAR,
 

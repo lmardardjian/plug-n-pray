@@ -34,7 +34,7 @@ static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) {
 // ----------------------------- FUNCIONES AUXILIARES IO -----------------------------
 
 static char* armar_parametro_io(t_io_request* req) {
-    char* param = malloc(20); //mmm magic number
+    char* param = malloc(MAX_PARAM_IO_LEN);
 
     //dependiendo el tipo de IO que lo esté pidiendo se crea el parámetro a enviar teniendo en cuenta lo que espera dicha intefaz.
     switch (req->tipo) {

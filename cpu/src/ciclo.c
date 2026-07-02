@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <commons/collections/list.h>
+#include "utils/constantes.h"
 
 
 int pid_actual = -1; 
@@ -101,7 +102,7 @@ static char* fetch(int fd_memory, uint32_t pc, t_log* logger) {
     enviar_uint32(fd_memory, (uint32_t) pid_actual);
     enviar_uint32(fd_memory, pc);
 
-    char* instruccion = malloc(256); //mmm magic number
+    char* instruccion = malloc(BUFFER_SIZE);
     if(instruccion == NULL) {
         return NULL;
     }
@@ -310,7 +311,7 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
             return 1;
         }
         case INST_SLEEP: {
-            uint32_t tiempo = leer_registro(ctx, inst.param1);
+            uint32_t tiempo = (uint32_t)atoi(inst.param1);
 
             ctx->pc++;
             actualizar_contexto(fd_memory, ctx);

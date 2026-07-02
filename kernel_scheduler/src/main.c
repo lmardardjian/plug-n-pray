@@ -223,7 +223,7 @@ void* escuchar_kernel_memory(void* arg) {
 
                 log_info(logger, "## Inicio de compactación");
 
-                //confirmar al KM que puede compactar.
+                //confirmo al KM que puede compactar.
                 pthread_mutex_lock(&mutex_socket_km_operaciones);
     
                 enviar_opcode(socket_kernel_memory_operaciones, KM_COMPACTACION_OK);
@@ -240,7 +240,7 @@ void* escuchar_kernel_memory(void* arg) {
 
                 sem_post(&sem_compactacion);
 
-                break;   
+                break;
             
             default:
                 log_warning(logger, "Opcode inesperado de KM: %d", opcode);
@@ -352,7 +352,7 @@ int main(int argc, char* argv[]) {
 
     //crear proceso inicial (PID 0) a mano.
     char* path_proceso_inicial = argv[2];
-    t_pcb* proceso_inicial = crear_pcb(0, 0);//mmm magic number PROCESO_INICIAL y PRIORIDAD_MAXIMA?
+    t_pcb* proceso_inicial = crear_pcb(PID_PROCESO_INICIAL, PRIORIDAD_MAXIMA);
 
     pthread_mutex_lock(&mutex_p_activos);
 
@@ -365,7 +365,7 @@ int main(int argc, char* argv[]) {
     pthread_mutex_lock(&mutex_socket_km_operaciones);
 
     enviar_opcode(socket_kernel_memory_operaciones, KM_CREAR_PROCESO);
-    enviar_uint32(socket_kernel_memory_operaciones, 0); //mmm magic number PROCESO_INICIAL?
+    enviar_uint32(socket_kernel_memory_operaciones, PID_PROCESO_INICIAL);
     enviar_string(socket_kernel_memory_operaciones, path_proceso_inicial);
 
     op_code opcode;

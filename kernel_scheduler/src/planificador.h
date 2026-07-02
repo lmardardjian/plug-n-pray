@@ -1,5 +1,5 @@
-#ifndef planificador_H
-#define planificador_H
+#ifndef PLANIFICADOR_H
+#define PLANIFICADOR_H
 
 #include "pcb.h"
 #include <commons/config.h>
