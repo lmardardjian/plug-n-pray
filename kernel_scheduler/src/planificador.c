@@ -434,7 +434,7 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operacione
         
         pthread_mutex_lock(&mutex_p_activos);
 
-        // Limpiar el PCB huérfano de la lista global
+        //limpio el PCB huérfano de la lista global
         for (int i = 0; i < list_size(p_activos_global); i++) {
             t_pcb* p = list_get(p_activos_global, i);
             if (p->pid == pid_nuevo) {

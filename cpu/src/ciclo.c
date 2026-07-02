@@ -171,7 +171,7 @@ static int check_interrupt(int fd_scheduler) {
 
 
 static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd_memory, t_log* logger) {
-    log_info(logger, "## PID: %d - Ejecutando: %s %s %s", pid_actual, instruccion_to_string(inst.tipo), inst.param1, inst.param2);
+    log_info(logger, "## PID: %d - Ejecutando: %s - %s %s", pid_actual, instruccion_to_string(inst.tipo), inst.param1, inst.param2);
     int pc_modificado = 0;
     switch(inst.tipo) {
         case INST_NOOP:

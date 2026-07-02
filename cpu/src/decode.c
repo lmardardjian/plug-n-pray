@@ -4,7 +4,7 @@
 
 t_instruccion decode(char* texto) {
 
-    t_instruccion inst;
+    t_instruccion inst = {0};
 
     char nombre[32] = {0};
 
