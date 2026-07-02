@@ -41,7 +41,8 @@ int main(int argc, char* argv[])
     char* puerto_memory = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
     char* puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 
-    t_log* logger = log_create("memory_stick.log", "MEMORY_STICK", 1, LOG_LEVEL_INFO);
+    char* log_level_str = config_get_string_value(config, "LOG_LEVEL");
+    t_log* logger = log_create("memory_stick.log", "MEMORY_STICK", 1, log_level_from_string(log_level_str));
 
     int socket_kernel_memory_operaciones = conectar_a_modulo(logger, ip_memory, puerto_memory, "Kernel Memory");
 

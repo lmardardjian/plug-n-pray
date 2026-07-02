@@ -30,7 +30,8 @@ int main(int argc, char* argv[]) {
     char nombre_log[MAX_NOMBRE_LOG];
     snprintf(nombre_log, sizeof(nombre_log), "cpu_%s.log", argv[2]);
 
-    t_log* logger = log_create(nombre_log, "CPU", true, LOG_LEVEL_INFO);
+    char* log_level_str = config_get_string_value(config, "LOG_LEVEL");
+    t_log* logger = log_create(nombre_log, "CPU", true, log_level_from_string(log_level_str));
 
     // SEGMENT_MAX_SIZE: necesario para la MMU (debe coincidir con el
     // configurado en el Kernel Memory)

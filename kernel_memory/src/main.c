@@ -24,7 +24,9 @@ int main(int argc, char* argv[]) {
 
     char* puerto = config_get_string_value(config, "PUERTO_ESCUCHA");
 
-    logger = log_create("kernel_memory.log", "MEMORY", 1, LOG_LEVEL_INFO);
+    char* log_level_str = config_get_string_value(config, "LOG_LEVEL");
+    logger = log_create("kernel_memory.log", "MEMORY", 1, log_level_from_string(log_level_str));
+    
     int servidor = iniciar_servidor_modulo(logger, puerto, "Kernel Memory");
     if (servidor == -1) {
         config_destroy(config);
