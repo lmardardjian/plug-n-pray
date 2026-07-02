@@ -113,13 +113,7 @@ static void escribir_en_kernel_memory(uint32_t pid, uint32_t dir_fisica, char* d
 
         return;
     }
-    
-    enviar_buffer(socket_kernel_memory_operaciones, datos, size);
-
-    recibir_opcode(socket_kernel_memory_operaciones, &ack);
-    
    pthread_mutex_unlock(&mutex_socket_km_operaciones);
-
 }
 
 // ------------------------------------- LISTENER -------------------------------------
@@ -156,7 +150,7 @@ static void* hilo_io_listener(void* arg) {
                 free(req);
                 break;
             }
-            escribir_en_kernel_memory(pid_finalizado, req_copia.dir_fisica, buffer, req_copia.size, io->logger);
+            escribir_en_kernel_memory(pid_finalizado, req->dir_fisica, buffer, req->size, io->logger);
         }
 
         //espero confirmación de que se ejecutó la acción asociada al tipo de IO.
@@ -186,14 +180,17 @@ static void* hilo_io_listener(void* arg) {
         log_info(io->logger, "## (%d) finalizó IO y pasa a READY / SUSP. READY", pid_finalizado);
 
         //libero el campo datos de req solo cuando venimos del caos STDOUT.
-        if (req_copia.datos != NULL)
-            free(req_copia.datos);
+        if (req->datos != NULL)
+            free(req->datos);
 
         //trato de quitar el proceso de la lista de bloqueados.
         t_pcb* proceso = quitar_de_block(pid_finalizado);
 
         //si estaba ahí, lo muevo a la lista READY.
         if (proceso != NULL) {
+            //destruyo su timer tiempo_susp
+            temporal_destroy(proceso->tiempo_susp);
+            proceso->tiempo_susp = NULL;
             cambiar_estado(proceso, ESTADO_READY, io->logger);
             agregar_a_ready(proceso);
         } else {
@@ -238,7 +235,9 @@ static void* hilo_io_listener(void* arg) {
 
     close(io->socket_fd);
     free(io->nombre);
-    pthread_mutex_destroy(&io->mutex_req);
+    queue_destroy(io->cola_requests);
+    sem_destroy(&io->sem_requests);
+    pthread_mutex_destroy(&io->mutex_cola);
     free(io);
 
     return NULL;

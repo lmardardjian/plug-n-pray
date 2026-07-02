@@ -236,7 +236,7 @@ void* escuchar_kernel_memory(void* arg) {
                 
                 pthread_mutex_unlock(&mutex_desalojo_compactacion);
 
-                log_info(logger, "## Fin de compactacion");
+                log_info(logger, "## Fin de compactación");
 
                 sem_post(&sem_compactacion);
 
@@ -268,7 +268,7 @@ static void inicializar_ks_estructuras() {
 int main(int argc, char* argv[]) {
 
     if (argc < 3) {
-        printf("Uso: %s [config] [path_proceso_inicial]\n", argv[0]); // DUDA: Raro este string
+        printf("Uso: %s [config] [path_proceso_inicial]\n", argv[0]);
         return EXIT_FAILURE;
     }
 

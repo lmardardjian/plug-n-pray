@@ -50,18 +50,6 @@ int main(int argc, char* argv[]) {
 
     // LOOP PRINCIPAL
     while (1) {
-        /* ESTO PODRIA VENIR BIEN. QUE EL KS MANDE UN OP_CODE ANTES DEL PID
-            op_code codigo;
-            if (recibir_opcode(fd_scheduler, &codigo) <= 0) {
-                log_error(logger, "Kernel Scheduler desconectado");
-                break;
-            }
-            if (codigo != KS_DISPATCH_PID) {
-                log_warning(logger, "Opcode inesperado recibido: %d", codigo);
-                continue;
-            }
-        */
-
        if (fd_scheduler < 0) {
             log_error(logger, "No se pudo conectar al Kernel Scheduler");
             return EXIT_FAILURE;

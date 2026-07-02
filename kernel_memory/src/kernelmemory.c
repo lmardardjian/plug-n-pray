@@ -331,7 +331,7 @@ static bool cmp_segs_base(void* a, void* b)
 
 void compactar_memoria(void)
 {
-    log_info(logger, "## Inicio de compactacion");
+    log_info(logger, "## Inicio de compactación");
 
     int delay_ms = config_get_int_value(config, "COMPACTION_DELAY");
     usleep((useconds_t)delay_ms * 1000);
@@ -379,7 +379,7 @@ void compactar_memoria(void)
     pthread_mutex_unlock(&g_mutex_huecos);
     pthread_mutex_unlock(&g_mutex_procesos);
 
-    log_info(logger, "## Fin de compactacion");
+    log_info(logger, "## Fin de compactación");
 
     notificar_memoria_libre_al_scheduler();
 }
@@ -544,8 +544,7 @@ void op_enviar_instruccion(int cliente)
     char* instruccion = strdup(list_get(proc->instrucciones, pc));
     pthread_mutex_unlock(&g_mutex_procesos);
 
-    log_info(logger, "## PID: %u - Obtener instruccion: %u - Instruccion: %s",
-             pid, pc, instruccion);
+    log_info(logger, "## PID: %u - Obtener instrucción: %u - Instrucción: %s", pid, pc, instruccion);
 
     enviar_opcode(cliente, RESPUESTA_OK);
     enviar_string(cliente, instruccion);
@@ -568,7 +567,7 @@ void op_enviar_contexto(int cliente)
         return;
     }
     enviar_opcode(cliente, RESPUESTA_OK);
-    enviar_contexto_serializado(cliente, &proc->contexto); //DUDA: No está declarado, código viejo?
+    enviar_contexto_serializado(cliente, &proc->contexto);
     pthread_mutex_unlock(&g_mutex_procesos);
 
     log_info(logger, "## Contexto enviado PID %u", pid);
@@ -615,29 +614,40 @@ void op_mem_alloc(int cliente)
     int idx = seleccionar_hueco(tamanio);
 
     if (idx == -1) {
-        // calcular memoria libre total
         uint32_t libre = 0;
         for (int i = 0; i < (int)list_size(g_huecos); i++)
             libre += ((t_hueco*)list_get(g_huecos, i))->tamanio;
         pthread_mutex_unlock(&g_mutex_huecos);
 
-        if (libre >= tamanio) {
-            log_info(logger, "## PID: %u - Sin hueco contiguo, pidiendo compactacion", pid);
-
-            // notificar al KS que desaloje todas las CPUs
-            pthread_mutex_lock(&g_mutex_ks_notif);
-
-            enviar_opcode(g_socket_ks_notificaciones, KM_NOTIF_COMPACTAR);
-            sem_wait(&sem_compactacion_ok);
-            compactar_memoria();
-
-        } else {
+        if (libre < tamanio) {
             log_error(logger, "## PID: %u - Sin memoria suficiente", pid);
             enviar_opcode(cliente, RESPUESTA_ERROR);
+            return;
         }
-        return;
+
+        // Hay espacio total pero no contiguo → compactar
+        log_info(logger, "## PID: %u - Sin hueco contiguo, pidiendo compactacion", pid);
+
+        pthread_mutex_lock(&g_mutex_ks_notif);
+        enviar_opcode(g_socket_ks_notificaciones, KM_NOTIF_COMPACTAR);
+        pthread_mutex_unlock(&g_mutex_ks_notif);  // fix del autodeadlock
+
+        sem_wait(&sem_compactacion_ok);
+        compactar_memoria();
+
+        // Reintentar búsqueda de hueco tras compactación
+        pthread_mutex_lock(&g_mutex_huecos);
+        idx = seleccionar_hueco(tamanio);
+        if (idx == -1) {
+            pthread_mutex_unlock(&g_mutex_huecos);
+            log_error(logger, "## PID: %u - Sin hueco contiguo tras compactacion", pid);
+            enviar_opcode(cliente, RESPUESTA_ERROR);
+            return;
+        }
+        // idx != -1: sigue con el lock tomado, cae al bloque de abajo
     }
 
+    // idx != -1, g_mutex_huecos tomado (ya sea por camino directo o post-compactación)
     uint32_t base = ocupar_hueco(idx, tamanio);
     pthread_mutex_unlock(&g_mutex_huecos);
 
@@ -648,7 +658,7 @@ void op_mem_alloc(int cliente)
     t_proceso_memoria* proc = dictionary_get(g_procesos, key);
     if (!proc) {
         pthread_mutex_unlock(&g_mutex_procesos);
-        liberar_segmento(base, tamanio);   // devolver el espacio
+        liberar_segmento(base, tamanio);
         enviar_opcode(cliente, RESPUESTA_ERROR);
         return;
     }
@@ -698,6 +708,8 @@ void op_mem_free(int cliente)
     log_info(logger, "## PID: %u - Segmento %u liberado", pid, id_segmento);
     free(seg_elim);
     enviar_opcode(cliente, RESPUESTA_OK);
+
+    notificar_memoria_libre_al_scheduler();
 }
 
 void op_mem_read(int cliente)
@@ -709,8 +721,7 @@ void op_mem_read(int cliente)
     recibir_uint32(cliente, &dir_fisica);
     recibir_uint32(cliente, &tamanio);
 
-    log_info(logger, "## PID: %u - Lectura - Dir. Física: %u - Tamaño: %u",
-             pid, dir_fisica, tamanio);
+    log_info(logger, "## PID: %u - Lectura - Dir. Física: %u - Tamaño: %u", pid, dir_fisica, tamanio);
 
     void* datos = leer_de_sticks(dir_fisica, tamanio);
     if (!datos) { enviar_opcode(cliente, RESPUESTA_ERROR); return; }
@@ -730,8 +741,7 @@ void op_mem_write(int cliente)
     void* datos = malloc(tamanio);
     recibir_buffer(cliente, datos, tamanio);
 
-    log_info(logger, "## PID: %u - Escritura - Dir. Física: %u - Tamaño: %u",
-             pid, dir_fisica, tamanio);
+    log_info(logger, "## PID: %u - Escritura - Dir. Física: %u - Tamaño: %u", pid, dir_fisica, tamanio);
 
     int ok = escribir_en_sticks(dir_fisica, datos, tamanio);
     free(datos);
@@ -824,8 +834,7 @@ void op_suspender_proceso(int cliente)
 
             uint32_t* num_bloque = list_get(bloques, b);
             if (escribir_bloque_swap(*num_bloque, buffer_bloque) != 0) {
-                log_error(logger, "## PID: %u - Error escribiendo bloque de SWAP %u",
-                          pid, *num_bloque);
+                log_error(logger, "## PID: %u - Error escribiendo bloque de SWAP %u", pid, *num_bloque);
                 ok = false;
             }
         }
@@ -859,6 +868,8 @@ void op_suspender_proceso(int cliente)
 
     log_info(logger, "## PID: %u - Proceso suspendido, memoria movida a SWAP", pid);
     enviar_opcode(cliente, RESPUESTA_OK);
+
+    notificar_memoria_libre_al_scheduler();
 }
 
 // restaura todos los segmentos suspendidos desde SWAP hacia memoria
@@ -906,8 +917,7 @@ void op_reanudar_proceso(int cliente)
         for (int b = 0; b < (int)list_size(ss->bloques); b++) {
             uint32_t* num_bloque = list_get(ss->bloques, b);
             if (leer_bloque_swap(*num_bloque, buffer_bloque) != 0) {
-                log_error(logger, "## PID: %u - Error leyendo bloque de SWAP %u",
-                          pid, *num_bloque);
+                log_error(logger, "## PID: %u - Error leyendo bloque de SWAP %u", pid, *num_bloque);
                 continue;
             }
             uint32_t offset   = b * g_swap_block_size;
@@ -971,8 +981,7 @@ void* atender_cliente(void* arg)
         pthread_mutex_unlock(&g_mutex_bloques_swap);
 
         g_socket_swap = cliente;
-        log_info(logger, "## Modulo SWAP Conectado - %u bloques de %u bytes",
-                 g_swap_total_bloques, block_size);
+        log_info(logger, "## Modulo SWAP Conectado - %u bloques de %u bytes", g_swap_total_bloques, block_size);
 
         // este hilo solo se usa para detectar la desconexion; las
         // operaciones SW_LEER/SW_ESCRIBIR se disparan sincrónicamente
@@ -1067,15 +1076,7 @@ void* atender_cliente(void* arg)
         }
 
         if (es_notificaciones) {
-            switch(operacion) {
-                case KM_COMPACTACION_OK:
-                    log_info(logger, "## KS confirmo desalojo de CPUs");
-                    sem_post(&sem_compactacion_ok);
-                    break;
-                default:
-                    log_warning(logger, "Operacion inesperada en socket notificaciones: %d", operacion);
-                    break;
-            }
+            log_warning(logger, "Operacion inesperada en socket notificaciones: %d", operacion);
         } else {
 
         switch (operacion) {
@@ -1090,6 +1091,7 @@ void* atender_cliente(void* arg)
             case KM_FINALIZAR_PROCESO:   op_finalizar_proceso(cliente);   break;
             case KM_SUSPENDER_PROCESO:   op_suspender_proceso(cliente);   break;
             case KM_REANUDAR_PROCESO:    op_reanudar_proceso(cliente);    break;
+            case KM_COMPACTACION_OK:     log_info(logger, "## KS confirmo desalojo de CPUs"); sem_post(&sem_compactacion_ok); break;
             default:
                 log_error(logger, "## Operacion desconocida: %d", operacion);
                 break;

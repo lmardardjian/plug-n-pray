@@ -189,46 +189,6 @@ void* hilo_dispatcher(void* arg) {
 
 // ----------------------------- MANEJADOR DE SYSCALLS -----------------------------
 
-/*static void ejecutar_compactacion() {
-
-    sem_wait(&sem_compactacion);
-
-    pthread_mutex_lock(&mutex_desalojo_compactacion);
-    
-    desalojo_por_compactacion = true;
-
-    pthread_mutex_unlock(&mutex_desalojo_compactacion);
-
-    pthread_mutex_lock(&mutex_exec);
-
-    for (int i = 0; i < list_size(lista_exec); i++) {
-        t_pcb* en_exec = list_get(lista_exec, i);
-        int socket_cpu_exec = obtener_socket_cpu_de(en_exec->pid);
-        if (socket_cpu_exec != -1)
-            marcar_interrupcion(socket_cpu_exec);
-    }
-    pthread_mutex_unlock(&mutex_exec);
-
-    pthread_mutex_lock(&mutex_socket_km_operaciones);
-
-    enviar_opcode(socket_kernel_memory_operaciones, KM_COMPACTACION_OK);
-    op_code ack;
-    recibir_opcode(socket_kernel_memory_operaciones, &ack);
-
-    pthread_mutex_unlock(&mutex_socket_km_operaciones);
-
-    if (ack != RESPUESTA_OK)
-        log_error(logger, "Error en compactacion");
-
-    pthread_mutex_lock(&mutex_desalojo_compactacion);
-    
-    desalojo_por_compactacion = false;
-
-    pthread_mutex_unlock(&mutex_desalojo_compactacion);
-
-    sem_post(&sem_compactacion);
-}*/
-
 static bool consumir_interrupcion(int socket_cpu) {
 
     pthread_mutex_lock(&mutex_interrupciones);

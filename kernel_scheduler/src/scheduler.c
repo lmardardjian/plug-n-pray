@@ -242,12 +242,6 @@ t_pcb* quitar_de_block(uint32_t pid) {
     }
     pthread_mutex_unlock(&mutex_block);
 
-    //liberaro el temporal del BLOCK. En el camino de SUSP_BLOCK lo destruye quitar_de_susp_block, así que no hay doble free.
-    if (encontrado != NULL) {
-        temporal_destroy(encontrado->tiempo_susp);
-        encontrado->tiempo_susp = NULL;
-    }
-
     return encontrado;
 }
 
@@ -441,7 +435,6 @@ void* hilo_suspension(void* arg) {
         return NULL;
 
     //todavía en BLOCK. Suspender.
-    quitar_de_block(proceso->pid);
     cambiar_estado(proceso, ESTADO_SUSP_BLOCK, logger);
     agregar_a_susp_block(proceso);
 

@@ -377,8 +377,9 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
             return 1;
         }
         default:
-            log_error(logger, "Instrucción desconocida");
-            return 1; //DUDA: 1 indica syscall, no debería ser un exit_error o algo por el estilo?
+            log_error(logger, "## PID: %d - Instrucción desconocida", pid_actual);
+            enviar_seg_fault(fd_scheduler, fd_memory, ctx, logger);
+            return 1;
     }
     if(!pc_modificado) {
         ctx->pc++;

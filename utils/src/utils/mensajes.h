@@ -5,8 +5,6 @@
 #include <commons/collections/list.h>
 
 typedef enum {
-    MENSAJE, // DUDA: Está de más?
-
     //mensajes io
     IO_EJECUTAR,
 
@@ -17,7 +15,6 @@ typedef enum {
     KM_ACTUALIZAR_CONTEXTO,
     KM_MEM_READ,
     KM_MEM_WRITE,
-    KM_ESPACIO_LIBRE, //DUDA: No se usa, código viejo?
     KM_SUSPENDER_PROCESO,
     KM_REANUDAR_PROCESO,
     KM_BSOD,
@@ -43,10 +40,7 @@ typedef enum {
     KS_EXIT,
     KS_INIT_PROC,
 
-    //DUDA: Estos dos comentados no se usan en ningún lado, código viejo?
     //mensajes memory stick
-    //MS_RESERVAR,
-    //MS_LIBERAR,
     MS_LEER,
     MS_ESCRIBIR,
 
@@ -55,7 +49,7 @@ typedef enum {
     SW_ESCRIBIR,
 } op_code;
 
-typedef enum { // DUDA: Por qué tiene los valores hardcodeados?
+typedef enum {
     MODULO_KERNEL_MEMORY = 1,
     MODULO_KERNEL_SCHEDULER = 2,
     MODULO_CPU = 3,
