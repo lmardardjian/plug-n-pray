@@ -460,9 +460,11 @@ void intentar_reanudar_proceso() { //recolecta candidatos por nivel de prioridad
 
     for (int nivel = 0; nivel < cant_prioridades; nivel++) {
         t_pcb* p;
-        //SUSP_READY de este nivel (ya terminaron IO).
-        while ((p = sacar_mas_antiguo(listas_susp_ready[nivel])) != NULL)
+        //SUSP_READY de este nivel (ya terminaron IO) (tiempo_susp destuido, por eso no uso sacar_mas_antiguo).
+        while (!list_is_empty(listas_susp_ready[nivel])) {
+            t_pcb* p = list_remove(listas_susp_ready[nivel], 0);
             list_add(candidatos, p);
+        }
         //SUSP_BLOCK de este nivel (todavía esperando IO).
         while ((p = sacar_mas_antiguo(listas_susp_block[nivel])) != NULL)
             list_add(candidatos, p);

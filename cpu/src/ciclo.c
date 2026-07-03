@@ -103,6 +103,7 @@ static char* fetch(int fd_memory, uint32_t pc, t_log* logger) {
     enviar_uint32(fd_memory, pc);
 
     char* instruccion = malloc(BUFFER_SIZE);
+    
     if(instruccion == NULL) {
         return NULL;
     }
@@ -114,7 +115,7 @@ static char* fetch(int fd_memory, uint32_t pc, t_log* logger) {
         return NULL;
     }
 
-    recibir_string(fd_memory, instruccion, 256);
+    recibir_string(fd_memory, instruccion, BUFFER_SIZE);
 
     log_info(logger, "## PID: %d - FETCH - Program Counter: %d", pid_actual, pc);
     return instruccion;

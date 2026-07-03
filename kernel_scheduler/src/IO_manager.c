@@ -39,11 +39,11 @@ static char* armar_parametro_io(t_io_request* req) {
     //dependiendo el tipo de IO que lo esté pidiendo se crea el parámetro a enviar teniendo en cuenta lo que espera dicha intefaz.
     switch (req->tipo) {
         case TIPO_IO_SLEEP:
-            snprintf(param, 20, "%u", req->sleep_ms);
+            snprintf(param, MAX_PARAM_IO_LEN, "%u", req->sleep_ms);
             break;
 
         case TIPO_IO_STDIN:
-            snprintf(param, 20, "%u", req->size);
+            snprintf(param, MAX_PARAM_IO_LEN, "%u", req->size);
             break;
 
         case TIPO_IO_STDOUT:
@@ -182,6 +182,8 @@ static void* hilo_io_listener(void* arg) {
         //libero el campo datos de req solo cuando venimos del caos STDOUT.
         if (req->datos != NULL)
             free(req->datos);
+
+        free(req);
 
         //trato de quitar el proceso de la lista de bloqueados.
         t_pcb* proceso = quitar_de_block(pid_finalizado);
