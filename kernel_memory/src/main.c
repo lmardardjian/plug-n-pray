@@ -1,9 +1,6 @@
-#include "kernelmemory.h"
 #include "utils/hilos.h"
+#include "kernelmemory.h"
 #include "utils/conexion.h"
-#include "utils/constantes.h"
-#include <commons/collections/dictionary.h>
-#include <sys/socket.h>
 #include <stdlib.h>
 
 t_log* logger;

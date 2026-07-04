@@ -1,7 +1,6 @@
 #ifndef MEMORY_STICK_H
 #define MEMORY_STICK_H
 
-#include <string.h>
 #include <stdint.h>
 #include <pthread.h>
 #include <commons/log.h>

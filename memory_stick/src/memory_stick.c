@@ -1,9 +1,6 @@
 #include "memory_stick.h"
-#include "utils/mensajes.h"
+#include "utils/conexion.h"
 #include <string.h>
-#include <stdint.h>
-#include <pthread.h>
-#include <commons/log.h>
 #include <stdlib.h>
 
 int escribir_memoria(t_memory_stick_local* stick, uint32_t direccion, void* datos, uint32_t tamanio)

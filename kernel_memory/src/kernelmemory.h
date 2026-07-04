@@ -2,14 +2,12 @@
 #define KERNEL_MEMORY_H
 
 #include "utils/mensajes.h"
+#include <commons/collections/dictionary.h>
+#include <commons/collections/list.h>
 #include <commons/config.h>
 #include <commons/log.h>
-#include <commons/collections/list.h>
-#include <commons/collections/dictionary.h>
-#include <string.h>
 #include <pthread.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 // globales expuestos
 extern t_log*    logger;

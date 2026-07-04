@@ -1,4 +1,8 @@
 #include "procesos.h"
+#include "utils/conexion.h"
+#include "utils/mensajes.h"
+#include <stdbool.h>
+#include <stdlib.h>
 
 t_pcb* crear_pcb(uint32_t pid, uint32_t prioridad) {
     t_pcb* proceso = malloc(sizeof(t_pcb));

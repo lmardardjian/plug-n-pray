@@ -1,13 +1,11 @@
 #include "kernelmemory.h"
 #include "utils/conexion.h"
-#include <commons/collections/list.h>
-#include <commons/collections/dictionary.h>
+#include <semaphore.h>
+#include <stdbool.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <stdbool.h>
-#include <semaphore.h>
 
 // VARIABLES GLOBALES
 t_list*         g_memory_sticks  = NULL;

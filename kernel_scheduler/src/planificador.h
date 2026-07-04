@@ -2,9 +2,9 @@
 #define PLANIFICADOR_H
 
 #include "pcb.h"
-#include <commons/config.h>
 #include "utils/mensajes.h"
 #include <commons/collections/queue.h>
+#include <commons/config.h>
 #include <semaphore.h>
 #include <pthread.h>
 

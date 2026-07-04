@@ -4,7 +4,6 @@
 #include "utils/hilos.h"
 #include "planificador.h"
 #include "mutex_manager.h"
-#include <commons/config.h>
 #include <string.h>
 #include <unistd.h>
 

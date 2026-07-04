@@ -1,9 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include "swap.h"
+#include "utils/conexion.h"
 #include <commons/config.h>
 #include <commons/log.h>
-#include "utils/conexion.h"
-#include "swap.h"
+#include <stdio.h>
 
 int main(int argc, char* argv[])
 {

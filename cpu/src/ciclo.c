@@ -1,10 +1,10 @@
 #include "cpu.h"
 #include "utils/conexion.h"
+#include "utils/constantes.h"
+#include <commons/collections/list.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <commons/collections/list.h>
-#include "utils/constantes.h"
 
 
 int pid_actual = -1; 

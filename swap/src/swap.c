@@ -1,9 +1,9 @@
 #include "swap.h"
 #include "utils/conexion.h"
-#include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 
 t_swap_file* swap_file_abrir(const char* path, uint32_t file_size, uint32_t block_size)
 {

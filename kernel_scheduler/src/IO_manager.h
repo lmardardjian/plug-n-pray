@@ -4,6 +4,8 @@
 #include "pcb.h"
 #include "utils/conexion.h"
 #include "utils/constantes.h"
+#include <commons/collections/queue.h>
+#include <semaphore.h>
 
 extern int socket_kernel_memory_operaciones;
 extern pthread_mutex_t mutex_socket_km_operaciones;

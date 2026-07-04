@@ -1,10 +1,10 @@
 #include "procesos.h"
 #include "scheduler.h"
+#include "planificador.h"
 #include "mutex_manager.h"
 #include "utils/conexion.h"
-#include "planificador.h"
-#include <string.h>
 #include "utils/constantes.h"
+#include <string.h>
 
 extern t_log* logger;
 t_list* lista_mutexes;

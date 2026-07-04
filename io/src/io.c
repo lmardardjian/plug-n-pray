@@ -1,7 +1,10 @@
 #include "io.h"
 #include "utils/conexion.h"
-#include "utils/mensajes.h"
 #include "utils/constantes.h"
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
 
 tipo_io get_tipo_io(char* tipo) {
     if(strcasecmp(tipo, "SLEEP") == 0) {

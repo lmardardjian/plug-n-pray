@@ -2,12 +2,9 @@
 #define PROCESOS_H
 
 #include "pcb.h"
-#include "utils/mensajes.h"
 #include <commons/collections/list.h>
 #include <commons/log.h>
 #include <pthread.h>
-#include <stdbool.h>
-#include <stdlib.h>
 
 extern t_list* p_activos_global;
 extern pthread_mutex_t mutex_p_activos;

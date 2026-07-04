@@ -1,13 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <pthread.h>
-
-#include <commons/config.h>
-#include <commons/log.h>
-
-#include "utils/conexion.h"
+#include "utils/hilos.h"
 #include "memory_stick.h"
+#include "utils/conexion.h"
+#include <commons/config.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 
 int main(int argc, char* argv[])
 {

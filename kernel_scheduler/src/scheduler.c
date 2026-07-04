@@ -1,6 +1,7 @@
 #include "scheduler.h"
 #include "utils/hilos.h"
 #include "utils/conexion.h"
+#include <string.h>
 #include <unistd.h>
 
 //colas y listas para cada estado.

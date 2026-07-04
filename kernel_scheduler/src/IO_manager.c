@@ -2,6 +2,7 @@
 #include "scheduler.h"
 #include "IO_manager.h"
 #include "utils/hilos.h"
+#include <unistd.h>
 #include <string.h>
 
 //lista de interfaces registradas. Solo debe haber una de cada tipo.
