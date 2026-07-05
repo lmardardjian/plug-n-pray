@@ -14,6 +14,8 @@ void inicializar_io_manager() {
     pthread_mutex_init(&s_mutex_interfaces, NULL);
 }
 
+// ----------------------------- FUNCIONES AUXILIARES IO -----------------------------
+
 static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) {
 
     pthread_mutex_lock(&s_mutex_interfaces);
@@ -31,8 +33,6 @@ static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) {
 
     return resultado;
 }
-
-// ----------------------------- FUNCIONES AUXILIARES IO -----------------------------
 
 static char* armar_parametro_io(t_io_request* req) {
     char* param = malloc(MAX_PARAM_IO_LEN);
@@ -199,8 +199,9 @@ static void* hilo_io_listener(void* arg) {
         } else {
             //no estaba en la lista de BLOCK porque fué suspendido. Lo busco en la lista de SUSP. BLOCK.
             proceso = quitar_de_susp_block_por_pid(pid_finalizado);
+
+            //si lo encuentro en la lista de SUSP. BLOCK lo muevo a SUSP. READY.
             if (proceso != NULL) {
-                //si lo encuentro en la lista de SUSP. BLOCK lo muevo a SUSP. READY.
                 cambiar_estado(proceso, ESTADO_SUSP_READY, io->logger);
                 agregar_a_susp_ready(proceso);
             } else {
@@ -208,6 +209,8 @@ static void* hilo_io_listener(void* arg) {
             }
         }
     }
+
+    //raro sería pero por las dudas si se desconecta la interfaz:
 
     //dreno request pendientes en la cola para no filtrar memoria. Los procesos quedan en block y eventualmente van a susp_block, no se pierden.
     pthread_mutex_lock(&io->mutex_cola);
@@ -223,7 +226,7 @@ static void* hilo_io_listener(void* arg) {
     }
     pthread_mutex_unlock(&io->mutex_cola);
 
-    //la interfaz se desconectó. Removerla de la lista para permitir que una nueva del mismo tipo pueda registrarse.
+    //remuevo la interfaz de la lista para permitir que una nueva del mismo tipo pueda registrarse.
     log_error(io->logger, "## IO %s (%s) desconectada. Removiendo del registro.", io->nombre, tipo_io_to_string(io->tipo));
 
     pthread_mutex_lock(&s_mutex_interfaces);

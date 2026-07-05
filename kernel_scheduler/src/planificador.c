@@ -209,6 +209,42 @@ static bool consumir_interrupcion(int socket_cpu) {
     return false;
 }
 
+void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {
+
+    //me fijo si hay alguna interrupción por acatar.
+    if (consumir_interrupcion(socket_cpu)) {
+        //Le aviso a la CPU que pare.
+        enviar_uint32(socket_cpu, HAY_INTERRUPCION);
+
+        //cancelo su timer y muevo a ready al proceso que estaba ejecutando.
+        cancelar_timer(socket_cpu);
+        quitar_de_exec(proceso->pid);
+        cambiar_estado(proceso, ESTADO_READY, logger);
+
+        pthread_mutex_lock(&mutex_desalojo_compactacion);
+
+        if(desalojo_por_compactacion) {
+            agregar_al_principio_de_ready(proceso);
+            log_info(logger, "## (%d) - Desalojado por compactación", proceso->pid);
+
+            //aviso al hilo de escuchar_kernel_memory que esta CPU ya se desalojó.
+            sem_post(&sem_desalojo_ok);
+        }
+        else {
+            agregar_a_ready(proceso);
+            log_info(logger, "## (%d) - Desalojado por fin de quantum", proceso->pid);
+        }
+        pthread_mutex_unlock(&mutex_desalojo_compactacion);
+
+        //libero la cpu.
+        agregar_cpu_libre(socket_cpu);
+
+    } else {
+        //no hay interrupción. Aviso a la cpu que siga.
+        enviar_uint32(socket_cpu, SIN_INTERRUPCION);
+    }
+}
+
 void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso) {
     //creo y hago uso de las variables necesarias para recibir los parámetros de la syscall.
     uint32_t tipo_inst;
@@ -370,7 +406,7 @@ void manejar_syscall_exit(int socket_cpu, t_pcb* proceso) {
     
     cambiar_estado(proceso, ESTADO_EXIT, logger);
 
-    // notificar al KM que libere la memoria del proceso
+    //notifico al KM que libere la memoria del proceso.
     pthread_mutex_lock(&mutex_socket_km_operaciones);
 
     enviar_opcode(socket_kernel_memory_operaciones, KM_FINALIZAR_PROCESO);
@@ -387,10 +423,9 @@ void manejar_syscall_exit(int socket_cpu, t_pcb* proceso) {
 
     //trato de reanudar procesos en estado SUSP. READY o SUSP. BLOCK.
     intentar_reanudar_proceso();
-
 }
 
-void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operaciones, t_pcb* llamador) {
+void manejar_iniciar_proceso(int socket_cpu, t_pcb* llamador) {
     //creo y hago uso de las variables necesarias para recibir los parámetros (es una syscall pero tiene un protocolo distinto).
     char path[BUFFER_SIZE] = {0};
     uint32_t prioridad;
@@ -399,13 +434,28 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operacione
 
     log_info(logger, "## (%d) - Solicitó syscall: INIT_PROC", llamador->pid);
 
+    crear_proceso(path, prioridad);
+
+    //muevo el proceso llamador de vuelta a ready y libero la CPU.
+    cancelar_timer(socket_cpu);
+    quitar_de_exec(llamador->pid);
+    cambiar_estado(llamador, ESTADO_READY, logger);
+    agregar_a_ready(llamador);
+    agregar_cpu_libre(socket_cpu);
+}
+
+// ----------------------------- FUNCIONES AUXILIARES -----------------------------
+
+void crear_proceso(const char* path, uint32_t prioridad) {
+
     pthread_mutex_lock(&mutex_pid);
 
-    //obtengo el pid del nuevo proceso, creo su pcb y lo agrego a la lista global de procesos activos. Luego, incremento la variable.
+    //obtengo el pid del nuevo proceso y luego incremento la variable global.
     uint32_t pid_nuevo = proximo_pid++;
 
     pthread_mutex_unlock(&mutex_pid);
 
+    //creo su pcb y lo agrego a la lista global de procesos activos.
     t_pcb* nuevo = crear_pcb(pid_nuevo, prioridad);
 
     pthread_mutex_lock(&mutex_p_activos);
@@ -425,15 +475,15 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operacione
 
     op_code ack;
     bool creacion_ok = (recibir_opcode(socket_kernel_memory_operaciones, &ack) > 0 && ack == RESPUESTA_OK);
-
+    
     pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
     if (!creacion_ok) {
         log_error(logger, "Kernel Memory rechazó la creación del proceso PID %d", pid_nuevo);
-        
+
         pthread_mutex_lock(&mutex_p_activos);
 
-        //limpio el PCB huérfano de la lista global
+        //limpio el PCB huérfano de la lista global.
         for (int i = 0; i < list_size(p_activos_global); i++) {
             t_pcb* p = list_get(p_activos_global, i);
             if (p->pid == pid_nuevo) {
@@ -444,54 +494,11 @@ void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operacione
         }
         pthread_mutex_unlock(&mutex_p_activos);
 
-    } else {
-        //una vez hecho todo cambio el estado del proceso a ready y lo agrego a la cola que le corresponda.
-        cambiar_estado(nuevo, ESTADO_READY, logger);
-        agregar_a_ready(nuevo);
+        return;
     }
-
-    //muevo el proceso llamador de vuelta a ready y libero la CPU.
-    cancelar_timer(socket_cpu);
-    quitar_de_exec(llamador->pid);
-    cambiar_estado(llamador, ESTADO_READY, logger);
-    agregar_a_ready(llamador);
-    agregar_cpu_libre(socket_cpu);
-}
-
-void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {
-
-    //me fijo si hay alguna interrupción por acatar.
-    if (consumir_interrupcion(socket_cpu)) {
-        //Le aviso a la CPU que pare.
-        enviar_uint32(socket_cpu, HAY_INTERRUPCION);
-
-        //cancelo su timer y muevo a ready al proceso que estaba ejecutando.
-        cancelar_timer(socket_cpu);
-        quitar_de_exec(proceso->pid);
-        cambiar_estado(proceso, ESTADO_READY, logger);
-
-        pthread_mutex_lock(&mutex_desalojo_compactacion);
-
-        if(desalojo_por_compactacion) {
-            agregar_al_principio_de_ready(proceso);
-            log_info(logger, "## (%d) - Desalojado por compactación", proceso->pid);
-
-            //aviso al hilo de escuchar_kernel_memory que esta CPU ya se desalojó.
-            sem_post(&sem_desalojo_ok);
-        }
-        else {
-            agregar_a_ready(proceso);
-            log_info(logger, "## (%d) - Desalojado por fin de quantum", proceso->pid);
-        }
-        pthread_mutex_unlock(&mutex_desalojo_compactacion);
-
-        //libero la cpu.
-        agregar_cpu_libre(socket_cpu);
-
-    } else {
-        //no hay interrupción. Aviso a la cpu que siga.
-        enviar_uint32(socket_cpu, SIN_INTERRUPCION);
-    }
+    //una vez hecho todo cambio el estado del proceso a ready y lo agrego a la cola que le corresponde.
+    cambiar_estado(nuevo, ESTADO_READY, logger);
+    agregar_a_ready(nuevo);
 }
 
 void recrear_timer(int socket_cpu, t_pcb* proceso) {

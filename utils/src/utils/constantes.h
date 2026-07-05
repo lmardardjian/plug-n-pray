@@ -3,8 +3,6 @@
 
 #define BUFFER_SIZE            256
 
-// PID y prioridad del proceso inicial
-#define PID_PROCESO_INICIAL    0
 #define PRIORIDAD_MAXIMA       0   // menor número = mayor prioridad
 
 // Buffer para nombres de mutex

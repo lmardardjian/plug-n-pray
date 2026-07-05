@@ -1028,6 +1028,7 @@ void* atender_cliente(void* arg)
 
         // esperar hasta que el stick se desconecte
         op_code op;
+        //DUDA espera activa, ojo al piojo.
         while (recibir_opcode(cliente, &op) > 0);   // loop vacío, el stick no manda nada
 
         log_error(logger, "## Memory Stick desconectado — notificando BSOD");

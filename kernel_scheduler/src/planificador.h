@@ -52,7 +52,9 @@ void manejar_syscall_mutex_create(int socket_cpu, t_pcb* proceso);
 void manejar_syscall_mem_alloc(int socket_cpu, t_pcb* proceso);
 void manejar_syscall_mem_free(int socket_cpu, t_pcb* proceso);
 void manejar_syscall_exit(int socket_cpu, t_pcb* proceso);
-void manejar_iniciar_proceso(int socket_cpu, int socket_kernel_memory_operaciones, t_pcb* llamador);
+void manejar_iniciar_proceso(int socket_cpu, t_pcb* llamador);
+
+void crear_proceso(const char* path, uint32_t prioridad);
 
 void recrear_timer(int socket_cpu, t_pcb* proceso);
 

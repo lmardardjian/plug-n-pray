@@ -22,12 +22,12 @@ pthread_mutex_t mutex_socket_km_operaciones;
 t_list* p_activos_global; //lista que contiene todos los procesos "vivos".
 pthread_mutex_t mutex_p_activos;
 
-uint32_t proximo_pid = 1; //identificador del siguiente proceso por crear. El pid 0 lo usa el proceso inicial, por eso inicializa en 1.
+uint32_t proximo_pid = 0; //identificador del siguiente proceso por crear.
 pthread_mutex_t mutex_pid;
 
 sem_t sem_compactacion; //semáforo productor-consumidor del hilo dispatcher para que no mande procesos a cpus mientas estoy compactando.
 
-bool desalojo_por_compactacion = false;
+bool desalojo_por_compactacion = false; //indica forma distinta de manejar los procesos a la hora de agregarlos a ready. False por default.
 pthread_mutex_t mutex_desalojo_compactacion;
 
 sem_t sem_desalojo_ok; //sincroniza desalojo de CPUs con la confirmación de compactación al KM.
@@ -107,7 +107,7 @@ void* atender_cpu(void* arg) {
                 break;
 
             case KS_INIT_PROC: 
-                manejar_iniciar_proceso(socket_cpu, socket_kernel_memory_operaciones, proceso);
+                manejar_iniciar_proceso(socket_cpu, proceso);
                 break;
 
             default:
@@ -350,35 +350,11 @@ int main(int argc, char* argv[]) {
     crear_hilo(escuchar_kernel_memory, NULL);
     crear_hilo(hilo_dispatcher, NULL);
 
-    //crear proceso inicial (PID 0) a mano.
-    char* path_proceso_inicial = argv[2];
-    t_pcb* proceso_inicial = crear_pcb(PID_PROCESO_INICIAL, PRIORIDAD_MAXIMA);
+    //crear proceso inicial (PID 0).
+    crear_proceso(argv[2], PRIORIDAD_MAXIMA);
+    //termina la ejecución normal del main.
 
-    pthread_mutex_lock(&mutex_p_activos);
-
-    list_add(p_activos_global, proceso_inicial);
-
-    pthread_mutex_unlock(&mutex_p_activos);
-
-    log_info(logger, "## (0) Se crea el proceso - Estado: NEW");
-
-    pthread_mutex_lock(&mutex_socket_km_operaciones);
-
-    enviar_opcode(socket_kernel_memory_operaciones, KM_CREAR_PROCESO);
-    enviar_uint32(socket_kernel_memory_operaciones, PID_PROCESO_INICIAL);
-    enviar_string(socket_kernel_memory_operaciones, path_proceso_inicial);
-
-    op_code opcode;
-    if (recibir_opcode(socket_kernel_memory_operaciones, &opcode)<=0 || opcode != RESPUESTA_OK) {
-        log_error(logger, "Fallo al crear el proceso inicial");
-        return EXIT_FAILURE;
-    }
-
-    pthread_mutex_unlock(&mutex_socket_km_operaciones);
-
-    cambiar_estado(proceso_inicial, ESTADO_READY, logger);
-    agregar_a_ready(proceso_inicial);
-    
+    //espero que el kernel memory notifique corrupción de memoria (BSOD).
     sem_wait(&sem_bsod);
     
     log_error(logger, "## BLUE SCREEN OF DEATH");
