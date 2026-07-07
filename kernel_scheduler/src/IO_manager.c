@@ -34,35 +34,47 @@ static t_io_interfaz* buscar_interfaz_por_tipo(tipo_io tipo) {
     return resultado;
 }
 
-static char* armar_parametro_io(t_io_request* req) {
+static char* armar_parametro_io(t_io_request* req, uint32_t* out_tamanio) {
     char* param = malloc(MAX_PARAM_IO_LEN);
 
     //dependiendo el tipo de IO que lo esté pidiendo se crea el parámetro a enviar teniendo en cuenta lo que espera dicha intefaz.
     switch (req->tipo) {
         case TIPO_IO_SLEEP:
             snprintf(param, MAX_PARAM_IO_LEN, "%u", req->sleep_ms);
+            *out_tamanio = strlen(param) + 1;
             break;
 
         case TIPO_IO_STDIN:
             snprintf(param, MAX_PARAM_IO_LEN, "%u", req->size);
+            *out_tamanio = strlen(param) + 1;
             break;
 
         case TIPO_IO_STDOUT:
             free(param);
-            //libero param porque el límite de 20 caracteres me es insuficiente para lo que necesito en este caso.
-            param = strdup(req->datos != NULL ? (char*)req->datos : "");
+            //libero param porque el límite de 20 caracteres me puede ser insuficiente para lo que necesito en este caso.
+            uint32_t tamanio = req->size;
+            param = malloc(tamanio > 0 ? tamanio : 1);
+
+            if (tamanio > 0 && req->datos != NULL)
+                memcpy(param, req->datos, tamanio);
+
+            *out_tamanio = tamanio;
             break;
     }
     return param;
 }
 
 static void enviar_a_io(t_io_interfaz* io, t_io_request* req) {
-    char* param = armar_parametro_io(req);
+    uint32_t tamanio;
+    void* param = armar_parametro_io(req, &tamanio);
 
     //envio la instrucción de hacer uso de una interfaz en concreto para un proceso en concreto junto con los parámetros requeridos. 
     enviar_opcode(io->socket_fd, IO_EJECUTAR);
     enviar_uint32(io->socket_fd, req->pid);
-    enviar_string(io->socket_fd, param);
+
+    enviar_uint32(io->socket_fd, tamanio);
+    if (tamanio > 0)
+        enviar_buffer(io->socket_fd, param, tamanio);
 
     free(param);
 }

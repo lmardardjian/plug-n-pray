@@ -324,6 +324,8 @@ void manejar_syscall_mem_alloc(int socket_cpu, t_pcb* proceso) {
     //cancelo el timer de la cpu que alojaba al proceso.
     cancelar_timer(socket_cpu);
 
+    pausar_en_exec(proceso->pid);
+
     pthread_mutex_lock(&mutex_socket_km_operaciones);
 
     //notifico al KM para que haga la allocation junto con los parámetros necesarios.
@@ -339,6 +341,8 @@ void manejar_syscall_mem_alloc(int socket_cpu, t_pcb* proceso) {
 
     if (ack != RESPUESTA_OK)
         log_error(logger, "## (%d) MEM_ALLOC falló", proceso->pid);
+
+    agregar_a_exec(proceso);
 
     //recreo el timer de la cpu que va a volver a alojar al proceso.
     recrear_timer(socket_cpu, proceso);
@@ -364,6 +368,8 @@ void manejar_syscall_mem_free(int socket_cpu, t_pcb* proceso) {
     //cancelo el timer de la cpu que alojaba al proceso.
     cancelar_timer(socket_cpu);
 
+    pausar_en_exec(proceso->pid);
+
     pthread_mutex_lock(&mutex_socket_km_operaciones);
 
     enviar_opcode(socket_kernel_memory_operaciones, KM_MEM_FREE);
@@ -377,6 +383,8 @@ void manejar_syscall_mem_free(int socket_cpu, t_pcb* proceso) {
 
     if (ack != RESPUESTA_OK)
         log_error(logger, "## (%d) MEM_FREE falló para segmento %u", proceso->pid, id_segmento);
+
+    agregar_a_exec(proceso);
 
     //recreo el timer de la cpu que va a volver a alojar al proceso.
     recrear_timer(socket_cpu, proceso);
@@ -416,6 +424,8 @@ void manejar_syscall_exit(int socket_cpu, t_pcb* proceso) {
     recibir_opcode(socket_kernel_memory_operaciones, &ack);
 
     pthread_mutex_unlock(&mutex_socket_km_operaciones);
+
+    remover_de_activos_global(proceso->pid);
 
     //destruyo el proceso, libero la cpu que lo manejaba.
     destruir_pcb(proceso);
@@ -553,5 +563,21 @@ void marcar_interrupcion(int socket_cpu) {
     //agregamos la cpu a la lista de cpus con una interrupción por cumplir.
     list_add(cpus_con_interrupcion, s);
 
+    pthread_mutex_unlock(&mutex_interrupciones);
+}
+
+void olvidar_interrupcion(int socket_cpu) {
+
+    pthread_mutex_lock(&mutex_interrupciones);
+
+    int tamanio = list_size(cpus_con_interrupcion);
+    for (int i = 0; i < tamanio; i++) {
+        int* s = list_get(cpus_con_interrupcion, i);
+        if (*s == socket_cpu) {
+            list_remove(cpus_con_interrupcion, i);
+            free(s);
+            break;
+        }
+    }
     pthread_mutex_unlock(&mutex_interrupciones);
 }

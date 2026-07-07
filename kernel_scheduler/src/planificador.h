@@ -62,4 +62,6 @@ void cancelar_timer(int socket_cpu);
 
 void marcar_interrupcion(int socket_cpu);
 
+void olvidar_interrupcion(int socket_cpu);
+
 #endif

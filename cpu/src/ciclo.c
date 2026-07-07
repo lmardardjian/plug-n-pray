@@ -404,6 +404,7 @@ void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger) {
     op_code respuesta;
     if (recibir_opcode(fd_memory, &respuesta) <= 0 || respuesta == RESPUESTA_ERROR) {
         log_error(logger, "Error al obtener contexto para PID %d", pid_actual);
+        destruir_tabla_segmentos(ctx.tabla_segmentos);
         return;
     }
 
@@ -440,4 +441,5 @@ void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger) {
             break;
         }
     }
+    destruir_tabla_segmentos(ctx.tabla_segmentos);
 }

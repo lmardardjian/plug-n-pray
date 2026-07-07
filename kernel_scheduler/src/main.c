@@ -16,6 +16,7 @@ t_log* logger; //logger del Kernel Scheduler.
 t_config* config; //config del Kernel Scheduler.
 
 int socket_km_notificaciones; //socket para recibir notificaciones del KM. No necesita de un mutex porque solo lo usa escuchar_kernel_memory.
+int socket_km_control;   //socket para mandar notificaciones al KM. No necesita de un mutex porque solo lo usa escuchar_kernel_memory.
 int socket_kernel_memory_operaciones; //socket para mandar operaciones al KM.
 pthread_mutex_t mutex_socket_km_operaciones;
 
@@ -118,6 +119,8 @@ void* atender_cpu(void* arg) {
 
     cancelar_timer(socket_cpu);
 
+    olvidar_interrupcion(socket_cpu);
+
     // Si había un proceso corriendo en esta CPU, rescatarlo a READY.
     int32_t pid_en_cpu = obtener_pid_de_cpu(socket_cpu);
     if (pid_en_cpu >= 0) {
@@ -176,6 +179,8 @@ void* escuchar_conexiones(void* arg) {
 }
 
 void* escuchar_kernel_memory(void* arg) {
+    bool compactando = false;
+
     while (1) {
         op_code opcode;
         if (recibir_opcode(socket_km_notificaciones, &opcode) <= 0) {
@@ -191,6 +196,11 @@ void* escuchar_kernel_memory(void* arg) {
                 break;
 
             case KM_NOTIF_MEMORIA_LIBRE:
+                if (compactando) {
+                    log_info(logger, "## Fin de compactación");
+                    compactando = false;
+                    sem_post(&sem_compactacion);
+                }
                 intentar_reanudar_proceso();
                 break;
 
@@ -224,22 +234,14 @@ void* escuchar_kernel_memory(void* arg) {
                 log_info(logger, "## Inicio de compactación");
 
                 //confirmo al KM que puede compactar.
-                pthread_mutex_lock(&mutex_socket_km_operaciones);
-    
-                enviar_opcode(socket_kernel_memory_operaciones, KM_COMPACTACION_OK);
-
-                pthread_mutex_unlock(&mutex_socket_km_operaciones);
+                enviar_opcode(socket_km_control, KM_COMPACTACION_OK);
+                compactando = true;
 
                 pthread_mutex_lock(&mutex_desalojo_compactacion);
 
                 desalojo_por_compactacion = false;
                 
                 pthread_mutex_unlock(&mutex_desalojo_compactacion);
-
-                log_info(logger, "## Fin de compactación");
-
-                sem_post(&sem_compactacion);
-
                 break;
             
             default:
@@ -336,6 +338,20 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
     log_info(logger, "## Conectado al Notificador del Kernel Memory");
+
+    socket_km_control = conectar_a_modulo(logger, ip_km, puerto_km, "Kernel Memory (control)");
+
+    if (socket_km_control == -1) {
+        log_error(logger, "No se pudo conectar al canal de control del Kernel Memory");
+        return EXIT_FAILURE;
+    }
+
+    if (handshake_cliente(socket_km_control, logger, MODULO_KERNEL_SCHEDULER) == -1) {
+        log_error(logger, "Handshake del canal de control fallido");
+        return EXIT_FAILURE;
+    }
+
+    log_info(logger, "## Conectado al canal de control del Kernel Memory");
 
     //iniciar servidor para CPUs e IOs.
     char* puerto = config_get_string_value(config, "PUERTO_ESCUCHA");

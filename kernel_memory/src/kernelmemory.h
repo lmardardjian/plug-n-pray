@@ -13,7 +13,6 @@
 extern t_log*    logger;
 extern t_config* config;
 
-
 // hueco libre en la memoria física
 typedef struct {
     uint32_t base;
@@ -48,6 +47,7 @@ extern pthread_mutex_t g_mutex_huecos;
 
 extern int g_socket_ks_operaciones;
 extern int g_socket_ks_notificaciones;
+extern int g_socket_ks_control;
 extern pthread_mutex_t g_mutex_ks_notif;
 
 extern uint32_t g_segment_max_size;

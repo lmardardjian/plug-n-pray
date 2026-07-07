@@ -60,6 +60,24 @@ void destruir_todos_global() {
     pthread_mutex_unlock(&mutex_p_activos);
 }
 
+t_pcb* remover_de_activos_global(uint32_t pid) {
+
+    pthread_mutex_lock(&mutex_p_activos);
+
+    t_pcb* resultado = NULL;
+    int tamanio = list_size(p_activos_global);
+    for (int i = 0; i < tamanio; i++) {
+        t_pcb* proceso = list_get(p_activos_global, i);
+        if (proceso->pid == pid) {
+            resultado = list_remove(p_activos_global, i);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&mutex_p_activos);
+
+    return resultado;
+}
+
 static char* estado_to_string(t_estado estado) {
     switch (estado) {
         case ESTADO_NEW:        

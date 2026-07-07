@@ -50,6 +50,7 @@ t_pcb* quitar_de_block(uint32_t pid);
 
 void agregar_a_exec(t_pcb* proceso);
 void quitar_de_exec(uint32_t pid);
+void pausar_en_exec(uint32_t pid);
 
 void agregar_a_susp_ready(t_pcb* proceso);
 t_pcb* quitar_de_susp_ready_por_pid(uint32_t pid);

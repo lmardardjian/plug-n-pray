@@ -20,6 +20,8 @@ pthread_mutex_t g_mutex_huecos   = PTHREAD_MUTEX_INITIALIZER;
 int g_socket_ks_operaciones    = -1;
 int g_socket_ks_notificaciones = -1;
 pthread_mutex_t g_mutex_ks_notif = PTHREAD_MUTEX_INITIALIZER;
+int g_socket_ks_control = -1;
+static pthread_mutex_t mutex_ks_conexion = PTHREAD_MUTEX_INITIALIZER;
 
 static sem_t sem_compactacion_ok;
 
@@ -504,6 +506,8 @@ void op_crear_proceso(int cliente)
 
     if (!proc->instrucciones) {
         log_error(logger, "## PID: %u - No se pudo leer: %s", pid, path_completo);
+        list_destroy(proc->contexto.tabla_segmentos);
+        list_destroy(proc->segmentos_suspendidos);
         free(proc);
         enviar_opcode(cliente, RESPUESTA_ERROR);
         return;
@@ -989,6 +993,15 @@ void* atender_cliente(void* arg)
 
         log_error(logger, "## Modulo SWAP desconectado");
         g_socket_swap = -1;
+        
+        pthread_mutex_lock(&g_mutex_bloques_swap);
+
+        if (g_bloques_libres != NULL) {
+            list_destroy_and_destroy_elements(g_bloques_libres, free);
+            g_bloques_libres = NULL;
+        }
+        pthread_mutex_unlock(&g_mutex_bloques_swap);
+        
         close(cliente);
         return NULL;
     }
@@ -1028,7 +1041,7 @@ void* atender_cliente(void* arg)
 
         // esperar hasta que el stick se desconecte
         op_code op;
-        //DUDA espera activa, ojo al piojo.
+        
         while (recibir_opcode(cliente, &op) > 0);   // loop vacío, el stick no manda nada
 
         log_error(logger, "## Memory Stick desconectado — notificando BSOD");
@@ -1049,21 +1062,26 @@ void* atender_cliente(void* arg)
         return NULL;
     }
 
-    // kernel scheduler
-    // el scheduler se conecta dos veces: 1ª = socket de operaciones,
-    // 2ª = socket de notificaciones (el KS se conecta, espera mensajes async)
-    if (modulo == MODULO_KERNEL_SCHEDULER) {
-        es_notificaciones = (g_socket_ks_operaciones != -1);
+    bool es_control = false;
 
-        if (!es_notificaciones) {
+    if (modulo == MODULO_KERNEL_SCHEDULER) {
+
+        pthread_mutex_lock(&mutex_ks_conexion);
+
+        if (g_socket_ks_operaciones == -1) {
             g_socket_ks_operaciones = cliente;
             log_info(logger, "## Kernel Scheduler Conectado - FD del socket: %d", cliente);
-        } else {
+        } else if (g_socket_ks_notificaciones == -1) {
             g_socket_ks_notificaciones = cliente;
+            es_notificaciones = true;
             log_info(logger, "## Kernel Scheduler socket notificaciones FD: %d", cliente);
-            // este hilo no necesita hacer nada más, el kernel memory escribe en este
-            // socket mediante notificar_*. Lo dejamos vivo sin loop.
+        } else {
+            g_socket_ks_control = cliente;
+            es_control = true;
+            log_info(logger, "## Kernel Scheduler socket control FD: %d", cliente);
         }
+
+        pthread_mutex_unlock(&mutex_ks_conexion);
     }
 
     // loop principal (cpu y scheduler)
@@ -1073,28 +1091,33 @@ void* atender_cliente(void* arg)
             log_error(logger, "## Cliente desconectado (fd=%d)", cliente);
             break;
         }
-
-        if (es_notificaciones) {
+        if (es_control) {
+            if (operacion == KM_COMPACTACION_OK) {
+                log_info(logger, "## KS confirmo desalojo de CPUs");
+                sem_post(&sem_compactacion_ok);
+            } else {
+                log_warning(logger, "Operacion inesperada en socket de control: %d", operacion);
+            }
+        } else if (es_notificaciones) {
             log_warning(logger, "Operacion inesperada en socket notificaciones: %d", operacion);
         } else {
-
-        switch (operacion) {
-            case KM_CREAR_PROCESO:       op_crear_proceso(cliente);       break;
-            case KM_PEDIR_INSTRUCCION:   op_enviar_instruccion(cliente);  break;
-            case KM_PEDIR_CONTEXTO:      op_enviar_contexto(cliente);     break;
-            case KM_ACTUALIZAR_CONTEXTO: op_actualizar_contexto(cliente); break;
-            case KM_MEM_ALLOC:           op_mem_alloc(cliente);           break;
-            case KM_MEM_FREE:            op_mem_free(cliente);            break;
-            case KM_MEM_READ:            op_mem_read(cliente);            break;
-            case KM_MEM_WRITE:           op_mem_write(cliente);           break;
-            case KM_FINALIZAR_PROCESO:   op_finalizar_proceso(cliente);   break;
-            case KM_SUSPENDER_PROCESO:   op_suspender_proceso(cliente);   break;
-            case KM_REANUDAR_PROCESO:    op_reanudar_proceso(cliente);    break;
-            case KM_COMPACTACION_OK:     log_info(logger, "## KS confirmo desalojo de CPUs"); sem_post(&sem_compactacion_ok); break;
-            default:
-                log_error(logger, "## Operacion desconocida: %d", operacion);
-                break;
-        }
+            switch (operacion) {
+                case KM_CREAR_PROCESO:       op_crear_proceso(cliente);       break;
+                case KM_PEDIR_INSTRUCCION:   op_enviar_instruccion(cliente);  break;
+                case KM_PEDIR_CONTEXTO:      op_enviar_contexto(cliente);     break;
+                case KM_ACTUALIZAR_CONTEXTO: op_actualizar_contexto(cliente); break;
+                case KM_MEM_ALLOC:           op_mem_alloc(cliente);           break;
+                case KM_MEM_FREE:            op_mem_free(cliente);            break;
+                case KM_MEM_READ:            op_mem_read(cliente);            break;
+                case KM_MEM_WRITE:           op_mem_write(cliente);           break;
+                case KM_FINALIZAR_PROCESO:   op_finalizar_proceso(cliente);   break;
+                case KM_SUSPENDER_PROCESO:   op_suspender_proceso(cliente);   break;
+                case KM_REANUDAR_PROCESO:    op_reanudar_proceso(cliente);    break;
+                
+                default:
+                    log_error(logger, "## Operacion desconocida: %d", operacion);
+                    break;
+            }
         }
     }
 

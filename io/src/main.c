@@ -135,6 +135,7 @@ int main(int argc, char* argv[]) {
                 default:
                     log_error(logger, "Tipo IO desconocido");
                     enviar_opcode(conexion, RESPUESTA_ERROR);
+                    free(mensaje);
                     continue;
             }
             // LOG OBLIGATORIO

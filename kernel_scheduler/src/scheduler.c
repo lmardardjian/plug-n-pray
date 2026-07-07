@@ -286,7 +286,6 @@ void quitar_de_exec(uint32_t pid) {
 
     pthread_mutex_lock(&mutex_cpu_proceso);
 
-    //se hace independientemente del valor de "hay_desalojo_cmn".
     if(encontrado != NULL){
         tamanio = list_size(lista_cpu_proceso);
         for (int i = 0; i < tamanio; i++) {
@@ -298,6 +297,21 @@ void quitar_de_exec(uint32_t pid) {
         }
     }
     pthread_mutex_unlock(&mutex_cpu_proceso);
+}
+
+void pausar_en_exec(uint32_t pid) {
+
+    pthread_mutex_lock(&mutex_exec);
+
+    int tamanio = list_size(lista_exec);
+    for (int i = 0; i < tamanio; i++) {
+        t_pcb* proceso = list_get(lista_exec, i);
+        if (proceso->pid == pid) {
+            list_remove(lista_exec, i);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&mutex_exec);
 }
 
 // ----------------------------- SUSP. READY -----------------------------
