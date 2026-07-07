@@ -31,8 +31,10 @@ int leer_memoria(t_memory_stick_local* stick, uint32_t direccion, void* destino,
     return 0;
 }
 
-void atender_escritura(int cliente, t_memory_stick_local* stick, t_log* logger)
+void atender_escritura(int cliente, t_memory_stick_local* stick, t_log* logger, int memory_delay)
 {
+    usleep(memory_delay * 1000); //es correcto que vaya en esta linea?
+
     uint32_t direccion;
     uint32_t tamanio;
 
@@ -54,8 +56,10 @@ void atender_escritura(int cliente, t_memory_stick_local* stick, t_log* logger)
     free(buffer);
 }
 
-void atender_lectura(int cliente, t_memory_stick_local* stick, t_log* logger)
+void atender_lectura(int cliente, t_memory_stick_local* stick, t_log* logger, int memory_delay)
 {
+    usleep(memory_delay * 1000); //es correcto que vaya en esta linea?
+
     uint32_t direccion;
     uint32_t tamanio;
     recibir_uint32(cliente, &direccion);
@@ -80,6 +84,7 @@ void* atender_cpu(void* arg) //OJO CON EL NOMBRE ya hay una función atender_cpu
     int cliente = args->socket;
     t_memory_stick_local* stick = args->stick;
     t_log* logger = args->logger;
+    int memory_delay = args->memory_delay;
 
     free(args);
 
@@ -93,12 +98,11 @@ void* atender_cpu(void* arg) //OJO CON EL NOMBRE ya hay una función atender_cpu
         switch(operacion)
         {
             case MS_LEER:
-                atender_lectura(cliente, stick, logger);
+                atender_lectura(cliente, stick, logger, memory_delay);
                 break;
 
             case MS_ESCRIBIR:
-                atender_escritura(cliente, stick, logger);
-                break;
+                atender_escritura(cliente, stick, logger, memory_delay);
 
             default:
                 log_error(logger, "Operacion desconocida");

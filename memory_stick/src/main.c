@@ -41,6 +41,8 @@ int main(int argc, char* argv[])
     char* log_level_str = config_get_string_value(config, "LOG_LEVEL");
     t_log* logger = log_create("memory_stick.log", "MEMORY_STICK", 1, log_level_from_string(log_level_str));
 
+    int memory_delay = config_get_int_value(config, "MEMORY_DELAY");
+
     int socket_kernel_memory_operaciones = conectar_a_modulo(logger, ip_memory, puerto_memory, "Kernel Memory");
 
     if(socket_kernel_memory_operaciones == -1) {
@@ -89,6 +91,7 @@ int main(int argc, char* argv[])
         args->socket = cpu;
         args->stick = stick;
         args->logger = logger;
+        args->memory_delay = memory_delay;
 
         crear_hilo(atender_cpu, args);
     }
