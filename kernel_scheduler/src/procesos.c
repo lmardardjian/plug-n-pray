@@ -1,7 +1,7 @@
 #include "procesos.h"
+#include "scheduler.h"
 #include "utils/conexion.h"
 #include "utils/mensajes.h"
-#include <stdbool.h>
 #include <stdlib.h>
 
 t_pcb* crear_pcb(uint32_t pid, uint32_t prioridad) {
@@ -20,12 +20,15 @@ t_pcb* encontrar_proceso_global(uint32_t pid) {
     pthread_mutex_lock(&mutex_p_activos);
 
     t_pcb* resultado = NULL;
-    int tamanio = list_size(p_activos_global);
-    for (int i = 0; i < tamanio; i++) {
-        t_pcb* proceso = list_get(p_activos_global, i);
-        if (proceso->pid == pid) {
-        resultado = proceso;
-        break;
+
+    if (p_activos_global != NULL) {
+        int tamanio = list_size(p_activos_global);
+        for (int i = 0; i < tamanio; i++) {
+            t_pcb* proceso = list_get(p_activos_global, i);
+            if (proceso->pid == pid) {
+            resultado = proceso;
+            break;
+            }
         }
     }
     pthread_mutex_unlock(&mutex_p_activos);
@@ -60,6 +63,7 @@ void destruir_todos_global() {
     }
 
     list_destroy_and_destroy_elements(p_activos_global, destruir_pcb);
+    p_activos_global = NULL;
 
     pthread_mutex_unlock(&mutex_p_activos);
 }
@@ -80,6 +84,45 @@ t_pcb* remover_de_activos_global(uint32_t pid) {
     pthread_mutex_unlock(&mutex_p_activos);
 
     return resultado;
+}
+
+bool rescatar_proceso_de_cpu_desconectada(uint32_t pid, int socket_cpu, t_log* logger) {
+
+    pthread_mutex_lock(&mutex_p_activos);
+
+    if (p_activos_global == NULL) {
+
+        pthread_mutex_unlock(&mutex_p_activos);
+        
+        return false;
+    }
+
+    t_pcb* rescatado = NULL;
+    int tamanio = list_size(p_activos_global);
+    for (int i = 0; i < tamanio; i++) {
+        t_pcb* p = list_get(p_activos_global, i);
+        if (p->pid == pid) {
+            rescatado = p;
+            break;
+        }
+    }
+
+    if (rescatado == NULL) {
+
+        pthread_mutex_unlock(&mutex_p_activos);
+
+        return false;
+    }
+
+    log_warning(logger, "## CPU %d desconectada con PID %d en ejecución. Proceso rescatado a READY.", socket_cpu, pid);
+    
+    quitar_de_exec(pid);
+    cambiar_estado(rescatado, ESTADO_READY, logger);
+    agregar_a_ready(rescatado);
+
+    pthread_mutex_unlock(&mutex_p_activos);
+
+    return true;
 }
 
 static char* estado_to_string(t_estado estado) {

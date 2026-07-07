@@ -92,6 +92,7 @@ int     escribir_bloque_swap(uint32_t num_bloque, void* datos);
 // notificaciones al kernel_scheduler
 void notificar_bsod_al_scheduler(void);
 void notificar_memoria_libre_al_scheduler(void);
+void notificar_fin_compactacion_al_scheduler(void);
 
 // handlers de operaciones
 void op_crear_proceso(int cliente);

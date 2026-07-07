@@ -381,7 +381,7 @@ void compactar_memoria(void)
 
     log_info(logger, "## Fin de compactación");
 
-    notificar_memoria_libre_al_scheduler();
+    notificar_fin_compactacion_al_scheduler();
 }
 
 // swap: manejo de bloques
@@ -481,6 +481,16 @@ void notificar_memoria_libre_al_scheduler(void)
     if (g_socket_ks_notificaciones != -1) {
         log_info(logger, "## Notificando memoria libre al Kernel Scheduler");
         enviar_opcode(g_socket_ks_notificaciones, KM_NOTIF_MEMORIA_LIBRE);
+    }
+    pthread_mutex_unlock(&g_mutex_ks_notif);
+}
+
+void notificar_fin_compactacion_al_scheduler(void)
+{
+    pthread_mutex_lock(&g_mutex_ks_notif);
+
+    if (g_socket_ks_notificaciones != -1) {
+        enviar_opcode(g_socket_ks_notificaciones, KM_NOTIF_COMPACTACION_FIN);
     }
     pthread_mutex_unlock(&g_mutex_ks_notif);
 }

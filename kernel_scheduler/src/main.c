@@ -70,7 +70,7 @@ void* atender_cpu(void* arg) {
         t_pcb* proceso = encontrar_proceso_global(pid);
 
         if (proceso == NULL) {
-            log_error(logger, "Proceso %d no encontrado", pid);
+            log_error(logger, "## CPU %d: PID %u no encontrado (opcode %d recibido) — cerrando conexión", socket_cpu, pid, opcode);
             break;
         }
         //llamo a la función de manejo propia de la operación.
@@ -123,16 +123,11 @@ void* atender_cpu(void* arg) {
 
     // Si había un proceso corriendo en esta CPU, rescatarlo a READY.
     int32_t pid_en_cpu = obtener_pid_de_cpu(socket_cpu);
-    if (pid_en_cpu >= 0) {
-        t_pcb* rescatado = encontrar_proceso_global((uint32_t)pid_en_cpu);
-        if (rescatado != NULL) {
-            log_warning(logger, "## CPU %d desconectada con PID %d en ejecución. Proceso rescatado a READY.", socket_cpu, pid_en_cpu);
-            quitar_de_exec((uint32_t)pid_en_cpu);
-            cambiar_estado(rescatado, ESTADO_READY, logger);
-            agregar_a_ready(rescatado);
-        }
-    }
+    if (pid_en_cpu >= 0)
+        rescatar_proceso_de_cpu_desconectada((uint32_t)pid_en_cpu, socket_cpu, logger);
+
     close(socket_cpu);
+
     return NULL;
 }
 
@@ -179,7 +174,6 @@ void* escuchar_conexiones(void* arg) {
 }
 
 void* escuchar_kernel_memory(void* arg) {
-    bool compactando = false;
 
     while (1) {
         op_code opcode;
@@ -196,11 +190,12 @@ void* escuchar_kernel_memory(void* arg) {
                 break;
 
             case KM_NOTIF_MEMORIA_LIBRE:
-                if (compactando) {
-                    log_info(logger, "## Fin de compactación");
-                    compactando = false;
-                    sem_post(&sem_compactacion);
-                }
+                intentar_reanudar_proceso();
+                break;
+            
+             case KM_NOTIF_COMPACTACION_FIN:
+                log_info(logger, "## Fin de compactación");
+                sem_post(&sem_compactacion);
                 intentar_reanudar_proceso();
                 break;
 
