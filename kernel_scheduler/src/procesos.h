@@ -6,6 +6,8 @@
 #include <commons/log.h>
 #include <pthread.h>
 
+extern t_log* logger;
+
 extern t_list* p_activos_global;
 extern pthread_mutex_t mutex_p_activos;
 

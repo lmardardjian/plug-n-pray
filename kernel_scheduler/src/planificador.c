@@ -335,7 +335,13 @@ void manejar_syscall_mem_alloc(int socket_cpu, t_pcb* proceso) {
     enviar_uint32(socket_kernel_memory_operaciones, tamanio);
 
     op_code ack;
-    recibir_opcode(socket_kernel_memory_operaciones, &ack);
+    if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0) {
+
+        pthread_mutex_unlock(&mutex_socket_km_operaciones);
+
+        log_error(logger, "## (%d) Se perdió la conexión con Kernel Memory durante MEM_ALLOC", proceso->pid);
+        return;
+    }
 
     pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
@@ -377,7 +383,13 @@ void manejar_syscall_mem_free(int socket_cpu, t_pcb* proceso) {
     enviar_uint32(socket_kernel_memory_operaciones, id_segmento);
 
     op_code ack;
-    recibir_opcode(socket_kernel_memory_operaciones, &ack);
+    if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0) {
+
+        pthread_mutex_unlock(&mutex_socket_km_operaciones);
+
+        log_error(logger, "## (%d) Se perdió la conexión con Kernel Memory durante MEM_FREE", proceso->pid);
+        return;
+    }
 
     pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
@@ -421,7 +433,8 @@ void manejar_syscall_exit(int socket_cpu, t_pcb* proceso) {
     enviar_uint32(socket_kernel_memory_operaciones, proceso->pid);
 
     op_code ack;
-    recibir_opcode(socket_kernel_memory_operaciones, &ack);
+    if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0)
+        log_error(logger, "## (%d) No se pudo confirmar la liberación de memoria con Kernel Memory", proceso->pid);
 
     pthread_mutex_unlock(&mutex_socket_km_operaciones);
 

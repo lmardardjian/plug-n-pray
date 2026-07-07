@@ -459,7 +459,8 @@ void* hilo_suspension(void* arg) {
     enviar_uint32(socket_kernel_memory_operaciones, proceso->pid);
     
     op_code ack;
-    recibir_opcode(socket_kernel_memory_operaciones, &ack);
+    if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0)
+        log_error(logger, "## (%d) No se pudo confirmar la suspensión con Kernel Memory", proceso->pid);
 
     pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
@@ -500,11 +501,14 @@ void intentar_reanudar_proceso() { //recolecta candidatos por nivel de prioridad
         enviar_uint32(socket_kernel_memory_operaciones, proceso->pid);
 
         op_code ack;
-        recibir_opcode(socket_kernel_memory_operaciones, &ack);
+        bool km_confirmo = recibir_opcode(socket_kernel_memory_operaciones, &ack);
 
         pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
-        if (ack == RESPUESTA_OK) {
+        if (!km_confirmo)
+            log_error(logger, "## (%d) Se perdió la conexión con Kernel Memory durante REANUDAR_PROCESO", proceso->pid);
+
+        if (km_confirmo && ack == RESPUESTA_OK) {
             if (proceso->estado == ESTADO_SUSP_READY) {
                 cambiar_estado(proceso, ESTADO_READY, logger);
                 agregar_a_ready(proceso);

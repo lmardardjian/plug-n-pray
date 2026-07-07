@@ -48,10 +48,14 @@ void destruir_todos_global() {
         t_pcb* proceso = list_get(p_activos_global, i);
 
         pthread_mutex_lock(&mutex_socket_km_operaciones);
+
         enviar_opcode(socket_kernel_memory_operaciones, KM_FINALIZAR_PROCESO);
         enviar_uint32(socket_kernel_memory_operaciones, proceso->pid);
+
         op_code ack;
-        recibir_opcode(socket_kernel_memory_operaciones, &ack);
+        if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0)
+            log_error(logger, "## PID %u: no se pudo confirmar liberación de memoria con Kernel Memory (conexión perdida)", proceso->pid);
+
         pthread_mutex_unlock(&mutex_socket_km_operaciones);
     }
 

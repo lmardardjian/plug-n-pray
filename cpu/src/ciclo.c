@@ -121,7 +121,7 @@ static char* fetch(int fd_memory, uint32_t pc, t_log* logger) {
     return instruccion;
 }
 
-static void actualizar_contexto(int fd_memory, t_contexto* ctx) {
+static void actualizar_contexto(int fd_memory, t_contexto* ctx, t_log* logger) {
     enviar_opcode(fd_memory, KM_ACTUALIZAR_CONTEXTO);
     enviar_uint32(fd_memory, (uint32_t) pid_actual);
     enviar_contexto_serializado(fd_memory, ctx);
@@ -130,7 +130,8 @@ static void actualizar_contexto(int fd_memory, t_contexto* ctx) {
     // Si no lo leemos acá, queda en el buffer del socket y desincroniza
     // la próxima lectura (ej: la respuesta a KM_PEDIR_CONTEXTO).
     op_code respuesta;
-    recibir_opcode(fd_memory, &respuesta);
+    if (recibir_opcode(fd_memory, &respuesta) <= 0)
+        log_error(logger, "PID: %d - No se pudo confirmar la actualización de contexto con Kernel Memory", pid_actual);
 }
 
 static void enviar_syscall(int fd_scheduler, t_instruccion inst, op_code opcode) {
@@ -150,7 +151,7 @@ static void enviar_seg_fault(int fd_scheduler, int fd_memory, t_contexto* ctx, t
     log_warning(logger, "## PID: %d - Error: Segmentation Fault (SEG_FAULT)", pid_actual);
 
     ctx->pc++;
-    actualizar_contexto(fd_memory, ctx);
+    actualizar_contexto(fd_memory, ctx, logger);
 
     t_instruccion seg_fault;
     seg_fault.tipo = INST_EXIT;
@@ -283,31 +284,31 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
         }
         case INST_MUTEX_CREATE: {
             ctx->pc++;
-            actualizar_contexto(fd_memory, ctx);
+            actualizar_contexto(fd_memory, ctx, logger);
             enviar_syscall(fd_scheduler, inst, KS_MUTEX_CREATE);
             return 1;
         }
         case INST_MUTEX_LOCK: {
             ctx->pc++;
-            actualizar_contexto(fd_memory, ctx);
+            actualizar_contexto(fd_memory, ctx, logger);
             enviar_syscall(fd_scheduler, inst, KS_MUTEX_LOCK);
             return 1;
         }
         case INST_MUTEX_UNLOCK: {
             ctx->pc++;
-            actualizar_contexto(fd_memory, ctx);
+            actualizar_contexto(fd_memory, ctx, logger);
             enviar_syscall(fd_scheduler, inst, KS_MUTEX_UNLOCK);
             return 1;
         }
         case INST_MEM_ALLOC: {
             if(!pc_modificado) ctx->pc++;
-            actualizar_contexto(fd_memory, ctx);
+            actualizar_contexto(fd_memory, ctx, logger);
             enviar_syscall(fd_scheduler, inst, KS_MEM_ALLOC);
             return 1;
         }
         case INST_MEM_FREE: {
             if(!pc_modificado) ctx->pc++;
-            actualizar_contexto(fd_memory, ctx);
+            actualizar_contexto(fd_memory, ctx, logger);
             enviar_syscall(fd_scheduler, inst, KS_MEM_FREE);
             return 1;
         }
@@ -315,7 +316,7 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
             uint32_t tiempo = (uint32_t)atoi(inst.param1);
 
             ctx->pc++;
-            actualizar_contexto(fd_memory, ctx);
+            actualizar_contexto(fd_memory, ctx, logger);
 
             snprintf(inst.param1, sizeof(inst.param1), "%u", tiempo);
             inst.param2[0] = '\0';
@@ -334,7 +335,7 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
             }
     
             ctx->pc++;
-            actualizar_contexto(fd_memory, ctx);
+            actualizar_contexto(fd_memory, ctx, logger);
     
             snprintf(inst.param1, sizeof(inst.param1), "%d", dir_fisica);
             snprintf(inst.param2, sizeof(inst.param2), "%u", tamanio);
@@ -353,7 +354,7 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
             }
 
             ctx->pc++;
-            actualizar_contexto(fd_memory, ctx);
+            actualizar_contexto(fd_memory, ctx, logger);
 
             snprintf(inst.param1, sizeof(inst.param1), "%d", dir_fisica);
             snprintf(inst.param2, sizeof(inst.param2), "%u", tamanio);
@@ -363,7 +364,7 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
         }
         case INST_INIT_PROC: {
             ctx->pc++;
-            actualizar_contexto(fd_memory, ctx);
+            actualizar_contexto(fd_memory, ctx, logger);
             enviar_opcode(fd_scheduler, KS_INIT_PROC);
             enviar_uint32(fd_scheduler, (uint32_t)pid_actual);
             enviar_string(fd_scheduler, inst.param1);
@@ -374,7 +375,7 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
             if(!pc_modificado) {
                 ctx->pc++;
             }
-            actualizar_contexto(fd_memory, ctx);
+            actualizar_contexto(fd_memory, ctx, logger);
             enviar_syscall(fd_scheduler, inst, KS_EXIT);
             return 1;
         }
@@ -437,7 +438,7 @@ void ciclo_instruccion(int fd_scheduler, int fd_memory, t_log* logger) {
         int interrupcion = check_interrupt(fd_scheduler);
         if(interrupcion) {
             log_info( logger, "## Interrupción recibida");
-            actualizar_contexto(fd_memory,&ctx );
+            actualizar_contexto(fd_memory,&ctx, logger);
             break;
         }
     }
