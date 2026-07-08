@@ -33,11 +33,14 @@ extern int cant_prioridades;
 typedef struct {
     int socket_cpu;
     pthread_t hilo_timer;
+    bool cancelado;                   
+    pthread_mutex_t mutex_cancelado;
 } t_cpu_timer;
 
 typedef struct {
     int socket_cpu;
     uint32_t quantum_ms;
+    t_cpu_timer* entry;
 } t_args_timer;
 
 void inicializar_ks_cpu_manager();
