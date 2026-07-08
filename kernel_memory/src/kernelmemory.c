@@ -168,6 +168,31 @@ uint32_t total_libre(void)
     return total;
 }
 
+
+static void manejar_stick_desconectado_sin_lock(t_memory_stick* s)
+{
+    for (int i = 0; i < (int)list_size(g_memory_sticks); i++) {
+        if (list_get(g_memory_sticks, i) == s) {
+            list_remove(g_memory_sticks, i);
+            break;
+        }
+    }
+
+    log_error(logger, "## Memory Stick desconectado — notificando BSOD");
+    close(s->socket);
+    free(s);
+
+    notificar_bsod_al_scheduler();
+}
+
+static void manejar_stick_desconectado(t_memory_stick* s)
+{
+    pthread_mutex_lock(&g_mutex_sticks);
+    manejar_stick_desconectado_sin_lock(s);
+    pthread_mutex_unlock(&g_mutex_sticks);
+}
+
+
 // versión con lock (uso normal desde handlers)
 void* leer_de_sticks(uint32_t dir_fisica, uint32_t tamanio)
 {
@@ -195,7 +220,13 @@ void* leer_de_sticks(uint32_t dir_fisica, uint32_t tamanio)
         enviar_uint32(s->socket, lr);
 
         op_code resp;
-        recibir_opcode(s->socket, &resp);
+        if (recibir_opcode(s->socket, &resp) <= 0) {
+            pthread_mutex_unlock(&g_mutex_sticks);
+            manejar_stick_desconectado(s);
+            free(resultado);
+            return NULL;
+        }
+
         if (resp == RESPUESTA_ERROR) {
             pthread_mutex_unlock(&g_mutex_sticks); free(resultado); return NULL;
         }
@@ -233,7 +264,11 @@ int escribir_en_sticks(uint32_t dir_fisica, void* datos, uint32_t tamanio)
         enviar_buffer(s->socket, (char*)datos + escrito, lw);
 
         op_code resp;
-        recibir_opcode(s->socket, &resp);
+        if (recibir_opcode(s->socket, &resp) <= 0) {
+            pthread_mutex_unlock(&g_mutex_sticks);
+            manejar_stick_desconectado(s);
+            return -1;
+        }
         if (resp == RESPUESTA_ERROR) { pthread_mutex_unlock(&g_mutex_sticks); return -1; }
 
         escrito += lw;
@@ -269,7 +304,11 @@ static void* leer_de_sticks_sin_lock(uint32_t dir_fisica, uint32_t tamanio)
         enviar_uint32(s->socket, lr);
 
         op_code resp;
-        recibir_opcode(s->socket, &resp);
+        if (recibir_opcode(s->socket, &resp) <= 0) {
+            manejar_stick_desconectado_sin_lock(s);
+            free(resultado);
+            return NULL;
+        }
         if (resp == RESPUESTA_ERROR) { free(resultado); return NULL; }
         recibir_buffer(s->socket, (char*)resultado + leido, lr);
 
@@ -303,7 +342,10 @@ static int escribir_en_sticks_sin_lock(uint32_t dir_fisica, void* datos, uint32_
         enviar_buffer(s->socket, (char*)datos + escrito, lw);
 
         op_code resp;
-        recibir_opcode(s->socket, &resp);
+        if (recibir_opcode(s->socket, &resp) <= 0) {
+            manejar_stick_desconectado_sin_lock(s);
+            return NULL;
+        }
         if (resp == RESPUESTA_ERROR) return -1;
 
         escrito += lw;
@@ -972,7 +1014,6 @@ void* atender_cliente(void* arg)
     free(args);
 
     int32_t modulo = handshake_servidor(cliente, logger);
-    bool es_notificaciones = false;
 
     // swap: se conecta una unica vez e informa block_size y tamanio total
     if (modulo == MODULO_SWAP) {
@@ -999,7 +1040,7 @@ void* atender_cliente(void* arg)
         // operaciones SW_LEER/SW_ESCRIBIR se disparan sincrónicamente
         // desde los hilos que atienden pedidos de suspension/reanudacion.
         op_code op;
-        while (recibir_opcode(cliente, &op) > 0);
+        while (recibir_opcode(cliente, &op) > 0); //DUDA mismo caso que con memory sticks, hay que cambiarlo
 
         log_error(logger, "## Modulo SWAP desconectado");
         g_socket_swap = -1;
@@ -1049,29 +1090,10 @@ void* atender_cliente(void* arg)
         log_info(logger, "## Memory Stick de %u bytes Conectada", tamanio);
         notificar_memoria_libre_al_scheduler();
 
-        // esperar hasta que el stick se desconecte
-        op_code op;
-        
-        while (recibir_opcode(cliente, &op) > 0);   // loop vacío, el stick no manda nada
-
-        log_error(logger, "## Memory Stick desconectado — notificando BSOD");
-
-        // remover de la lista
-        pthread_mutex_lock(&g_mutex_sticks);
-        for (int i = 0; i < (int)list_size(g_memory_sticks); i++) {
-            if (list_get(g_memory_sticks, i) == stick) {
-                list_remove(g_memory_sticks, i);
-                break;
-            }
-        }
-        pthread_mutex_unlock(&g_mutex_sticks);
-        free(stick);
-
-        notificar_bsod_al_scheduler();
-        close(cliente);
         return NULL;
     }
 
+    bool es_notificaciones = false;
     bool es_control = false;
 
     if (modulo == MODULO_KERNEL_SCHEDULER) {
