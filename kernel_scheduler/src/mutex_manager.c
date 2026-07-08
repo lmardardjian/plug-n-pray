@@ -180,6 +180,7 @@ void  manejar_syscall_mutex_lock(int socket_cpu, t_pcb* proceso) {
     if(conseguido) {
         log_info(logger, "## (%d) Toma el Mutex %s", proceso->pid, nombre_mutex);
         //el proceso sigue corriendo en la misma CPU: recrear el timer y reenviarle el PID para que ciclo_instruccion continue.
+        cancelar_timer(socket_cpu);
         recrear_timer(socket_cpu, proceso);
         enviar_uint32(socket_cpu, proceso->pid);
     }
