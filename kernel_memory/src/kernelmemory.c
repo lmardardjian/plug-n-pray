@@ -460,6 +460,13 @@ void liberar_bloques_swap(t_list* bloques)
     list_destroy(bloques);
 }
 
+static void manejar_swap_desconectado(void)
+{
+    log_error(logger, "## Modulo SWAP desconectado");
+    close(g_socket_swap);
+    g_socket_swap = -1;
+}
+
 // lee un bloque completo (g_swap_block_size bytes) desde el modulo SWAP
 int leer_bloque_swap(uint32_t num_bloque, void* destino)
 {
@@ -470,7 +477,13 @@ int leer_bloque_swap(uint32_t num_bloque, void* destino)
     enviar_uint32(g_socket_swap, num_bloque);
 
     op_code resp;
-    if (recibir_opcode(g_socket_swap, &resp) <= 0 || resp != RESPUESTA_OK) {
+    if (recibir_opcode(g_socket_swap, &resp) <= 0) {
+        manejar_swap_desconectado();
+        pthread_mutex_unlock(&g_mutex_swap);
+        
+        return -1;
+    }
+    if (resp != RESPUESTA_OK) {
         pthread_mutex_unlock(&g_mutex_swap);
         return -1;
     }
@@ -490,10 +503,17 @@ int escribir_bloque_swap(uint32_t num_bloque, void* datos)
     enviar_buffer(g_socket_swap, datos, g_swap_block_size);
 
     op_code resp;
-    if (recibir_opcode(g_socket_swap, &resp) <= 0 || resp != RESPUESTA_OK) {
+    if (recibir_opcode(g_socket_swap, &resp) <= 0) {
+        manejar_swap_desconectado();
+        pthread_mutex_unlock(&g_mutex_swap);
+        
+        return -1;
+    }
+    if (resp != RESPUESTA_OK) {
         pthread_mutex_unlock(&g_mutex_swap);
         return -1;
     }
+
     pthread_mutex_unlock(&g_mutex_swap);
     return 0;
 }
@@ -1036,24 +1056,6 @@ void* atender_cliente(void* arg)
         g_socket_swap = cliente;
         log_info(logger, "## Modulo SWAP Conectado - %u bloques de %u bytes", g_swap_total_bloques, block_size);
 
-        // este hilo solo se usa para detectar la desconexion; las
-        // operaciones SW_LEER/SW_ESCRIBIR se disparan sincrónicamente
-        // desde los hilos que atienden pedidos de suspension/reanudacion.
-        op_code op;
-        while (recibir_opcode(cliente, &op) > 0); //DUDA mismo caso que con memory sticks, hay que cambiarlo
-
-        log_error(logger, "## Modulo SWAP desconectado");
-        g_socket_swap = -1;
-        
-        pthread_mutex_lock(&g_mutex_bloques_swap);
-
-        if (g_bloques_libres != NULL) {
-            list_destroy_and_destroy_elements(g_bloques_libres, free);
-            g_bloques_libres = NULL;
-        }
-        pthread_mutex_unlock(&g_mutex_bloques_swap);
-        
-        close(cliente);
         return NULL;
     }
 
