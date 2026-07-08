@@ -103,6 +103,7 @@ void* atender_cpu(void* arg) //OJO CON EL NOMBRE ya hay una función atender_cpu
 
             case MS_ESCRIBIR:
                 atender_escritura(cliente, stick, logger, memory_delay);
+                break;
 
             default:
                 log_error(logger, "Operacion desconocida");
