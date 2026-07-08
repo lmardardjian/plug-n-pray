@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
                 break;
             }
             char* mensaje = calloc(msg_len + 1, 1);
-            if(msg_len > 0 && recv(conexion, mensaje, msg_len, MSG_WAITALL) <= 0)
+            if(msg_len > 0 && recibir_buffer(conexion, mensaje, msg_len) <= 0)
             {
                 log_error(logger, "Error recibiendo parametros IO");
                 free(mensaje);
