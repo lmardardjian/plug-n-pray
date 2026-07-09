@@ -100,8 +100,6 @@ static void* hilo_quantum(void* arg) {
     //si llegamos a acá no se mató al hilo y venció el quantum. Mandamos interrupción a la CPU.
     log_info(logger, "Quantum vencido, enviando interrupción a CPU %d", socket_cpu);
     marcar_interrupcion(socket_cpu);
-
-    pthread_mutex_destroy(&entry->mutex_cancelado);
     free(entry);
 
     return NULL;
