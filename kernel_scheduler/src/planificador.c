@@ -90,6 +90,7 @@ static void* hilo_quantum(void* arg) {
     t_args_timer* args = (t_args_timer*) arg;
     int socket_cpu = args->socket_cpu;
     uint32_t quantum = args->quantum_ms;
+    t_cpu_timer* entry = args->entry;
     free(args);
 
     //duermo lo especificado por el quantum.
