@@ -183,7 +183,7 @@ void mutex_unlock(char* nombre) {
             log_info(logger, "## %d Cambio de prioridad: %d - %d", duenio_anterior->pid, duenio_anterior->prioridad, duenio_anterior->prioridad_original);
             duenio_anterior->prioridad = duenio_anterior->prioridad_original;
         }*/
-        return;
+        
     } else {
 
         //Hay bloqueados: se lo doy al primero que llegó (FIFO), según lo pedido por la consigna.
@@ -218,9 +218,9 @@ void mutex_unlock(char* nombre) {
     // heredada por seguir siendo dueño de algún otro mutex con gente esperando.
     uint32_t prioridad_correcta = calcular_prioridad_necesaria(duenio_anterior);
 
-    if (duenio_anterior->prioridad != duenio_anterior->prioridad_original) {
-        log_info(logger, "## %d Cambio de prioridad: %d - %d", duenio_anterior->pid, duenio_anterior->prioridad, duenio_anterior->prioridad_original);
-        duenio_anterior->prioridad = duenio_anterior->prioridad_original;
+    if (duenio_anterior->prioridad != prioridad_correcta) {
+        log_info(logger, "## %d Cambio de prioridad: %d - %d", duenio_anterior->pid, duenio_anterior->prioridad, duenio_anterior->prioridad_correcta);
+        duenio_anterior->prioridad = duenio_anterior->prioridad_correcta;
     }
 
 }
