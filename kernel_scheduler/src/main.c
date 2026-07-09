@@ -230,7 +230,6 @@ void* escuchar_kernel_memory(void* arg) {
 
                 //confirmo al KM que puede compactar.
                 enviar_opcode(socket_km_control, KM_COMPACTACION_OK);
-                // compactando = true;
 
                 pthread_mutex_lock(&mutex_desalojo_compactacion);
 

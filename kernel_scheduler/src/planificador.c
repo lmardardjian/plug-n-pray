@@ -70,22 +70,6 @@ static int obtener_cpu_libre() {
 
 // ----------------------------- DISPATCHER -----------------------------
 
-static t_cpu_timer* guardar_timer(int socket_cpu, pthread_t timer) {
-
-    //creo y hago uso de una estructura cpu timer.
-    t_cpu_timer* entry = malloc(sizeof(t_cpu_timer));
-    entry->socket_cpu = socket_cpu;
-    entry->hilo_timer = timer;
-    //agrego la estructura a la lista de timers.
-    pthread_mutex_init(&entry->mutex_cancelado, NULL);
-
-    pthread_mutex_lock(&mutex_timers);
-    list_add(lista_timers, entry);
-    pthread_mutex_unlock(&mutex_timers);
-
-    return entry;
-}
-
 static void* hilo_quantum(void* arg) {
     t_args_timer* args = (t_args_timer*) arg;
     int socket_cpu = args->socket_cpu;
@@ -96,15 +80,22 @@ static void* hilo_quantum(void* arg) {
     //duermo lo especificado por el quantum.
     usleep(quantum * 1000);
 
-    pthread_mutex_lock(&entry->mutex_cancelado);
-    bool fue_cancelado = entry->cancelado;
-    pthread_mutex_unlock(&entry->mutex_cancelado);
+    pthread_mutex_lock(&mutex_timers);
 
-    if (fue_cancelado) {
-        // el proceso ya terminó su ráfaga por otro motivo (syscall, exit, etc.)
-        // antes de que venciera el quantum. No corresponde interrumpir.
-        return NULL;
+    bool sigue_en_lista = false;
+    int tamanio = list_size(lista_timers);
+    for (int i = 0; i < tamanio; i++) {
+        if (list_get(lista_timers, i) == entry) {
+            list_remove(lista_timers, i);
+            sigue_en_lista = true;
+            break;
+        }
     }
+
+    pthread_mutex_unlock(&mutex_timers);
+
+    if (!sigue_en_lista)
+        return NULL;
 
     //si llegamos a acá no se mató al hilo y venció el quantum. Mandamos interrupción a la CPU.
     log_info(logger, "Quantum vencido, enviando interrupción a CPU %d", socket_cpu);
@@ -168,8 +159,6 @@ void* hilo_dispatcher(void* arg) {
 
                 t_cpu_timer* entry = malloc(sizeof(t_cpu_timer));
                 entry->socket_cpu = cpu;
-                entry->cancelado  = false;
-                pthread_mutex_init(&entry->mutex_cancelado, NULL);
 
                 args->entry = entry;
 
@@ -194,8 +183,6 @@ void* hilo_dispatcher(void* arg) {
 
                 t_cpu_timer* entry = malloc(sizeof(t_cpu_timer));
                 entry->socket_cpu = cpu;
-                entry->cancelado  = false;
-                pthread_mutex_init(&entry->mutex_cancelado, NULL);
 
                 args->entry = entry;
 
@@ -558,13 +545,11 @@ void crear_proceso(const char* path, uint32_t prioridad) {
 void recrear_timer(int socket_cpu, t_pcb* proceso) {
     if (strcmp(algoritmo, "RR") == 0) {
         t_args_timer* args = malloc(sizeof(t_args_timer));
-        args->socket_cpu   = socket_cpu;
-        args->quantum_ms   = config_get_int_value(config, "RR_QUANTUM");
+        args->socket_cpu = socket_cpu;
+        args->quantum_ms = config_get_int_value(config, "RR_QUANTUM");
 
         t_cpu_timer* entry = malloc(sizeof(t_cpu_timer));
-        entry->socket_cpu = cpu;
-        entry->cancelado  = false;
-        pthread_mutex_init(&entry->mutex_cancelado, NULL);
+        entry->socket_cpu = socket_cpu;
 
         args->entry = entry;
 
@@ -585,9 +570,7 @@ void recrear_timer(int socket_cpu, t_pcb* proceso) {
             args->quantum_ms   = config_get_int_value(config, "RR_QUANTUM");
 
             t_cpu_timer* entry = malloc(sizeof(t_cpu_timer));
-            entry->socket_cpu = cpu;
-            entry->cancelado  = false;
-            pthread_mutex_init(&entry->mutex_cancelado, NULL);
+            entry->socket_cpu = socket_cpu;
 
             args->entry = entry;
 
@@ -606,23 +589,22 @@ void recrear_timer(int socket_cpu, t_pcb* proceso) {
 
 void cancelar_timer(int socket_cpu) {
 
+    t_cpu_timer* encontrado = NULL;
+
     pthread_mutex_lock(&mutex_timers);
     
     int tamanio = list_size(lista_timers);
     for (int i = 0; i < tamanio; i++) {
         t_cpu_timer* entry = list_get(lista_timers, i);
         if (entry->socket_cpu == socket_cpu) {
-            //mato al hilo que al vencerse el timer hubiese disparado una interrupción.
-            pthread_mutex_lock(&entry->mutex_cancelado);
-            entry->cancelado = true;
-            pthread_mutex_unlock(&entry->mutex_cancelado);
-
-            list_remove(lista_timers, i);
-
+            encontrado = list_remove(lista_timers, i);
             break;
         }
     }
     pthread_mutex_unlock(&mutex_timers);
+
+    if (encontrado != NULL)
+        free(encontrado);
 }
 
 void marcar_interrupcion(int socket_cpu) {

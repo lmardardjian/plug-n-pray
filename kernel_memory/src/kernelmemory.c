@@ -344,7 +344,7 @@ static int escribir_en_sticks_sin_lock(uint32_t dir_fisica, void* datos, uint32_
         op_code resp;
         if (recibir_opcode(s->socket, &resp) <= 0) {
             manejar_stick_desconectado_sin_lock(s);
-            return NULL;
+            return -1;
         }
         if (resp == RESPUESTA_ERROR) return -1;
 
