@@ -285,7 +285,7 @@ int main(int argc, char* argv[]) {
     t_log_level log_level = log_level_from_string(log_level_str);
     logger = log_create("kernel_scheduler.log", "KERNEL", 1, log_level);
 
-    //obtener el algoritmo de planificación.
+    ///obtener el algoritmo de planificación (ANTES de inicializar estructuras que dependen de cant_prioridades).
     algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
     if(strcmp(algoritmo, "CMN") == 0) {
         cant_prioridades = 0;
