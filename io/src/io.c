@@ -40,10 +40,7 @@ void ejecutar_stdout(int pid, char* mensaje, t_log* logger)
 void ejecutar_stdin(int pid, int conexion, char* mensaje, t_log* logger)
 {
     int cantidad = atoi(mensaje);
-    if(cantidad >= BUFFER_SIZE)
-    {
-        cantidad = BUFFER_SIZE - 1;
-    }
+
     char input[BUFFER_SIZE];
     memset(input, 0, BUFFER_SIZE);
     log_info(logger, "## PID: %d - Ingrese %d caracteres:", pid, cantidad);
@@ -52,11 +49,12 @@ void ejecutar_stdin(int pid, int conexion, char* mensaje, t_log* logger)
     // Si sobrepasa el limite indicado (mensaje), se corta en ese caracter. Si le falta para llegar al limite, se le agregan \0s 
     // eliminar \n
     input[strcspn(input, "\n")] = '\0';
-    // buffer final exacto
-    char resultado[cantidad + 1];
-    memset(resultado, '\0', cantidad + 1);
+    
+    char* resultado = calloc(cantidad + 1, 1);
     strncpy(resultado, input, cantidad);
     
-    enviar_string(conexion, resultado);
+    enviar_buffer(conexion, resultado, cantidad);
     log_info(logger, "Input enviado al Kernel para PID %d", pid);
+
+    free(resultado);
 }

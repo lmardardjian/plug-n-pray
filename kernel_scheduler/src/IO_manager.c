@@ -152,18 +152,19 @@ static void* hilo_io_listener(void* arg) {
 
         //si el tipo del IO era STDIN, escribo en memoria lo solicitado.
         if (io->tipo == TIPO_IO_STDIN) {
-            char buffer[BUFFER_SIZE];
-            memset(buffer, 0, BUFFER_SIZE);
-            if (recibir_string(io->socket_fd, buffer, BUFFER_SIZE) <= 0) {
+            char* buffer = calloc(req->size + 1, 1);
+            if (req->size > 0 && recibir_buffer(io->socket_fd, buffer, req->size) <= 0) {
                 log_error(io->logger, "## IO %s desconectada leyendo STDIN de PID %u", io->nombre, pid_finalizado);
-                
+                free(buffer);
+
                 if (req->datos != NULL)
                     free(req->datos);
-                
+
                 free(req);
                 break;
             }
             escribir_en_kernel_memory(pid_finalizado, req->dir_fisica, buffer, req->size, io->logger);
+            free(buffer);
         }
 
         //espero confirmación de que se ejecutó la acción asociada al tipo de IO.
