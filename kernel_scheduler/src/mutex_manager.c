@@ -29,7 +29,7 @@ t_mutex_kernel* crear_mutex(char* nombre) {
 
     nuevo->nombre = strdup(nombre);
     nuevo->duenio = NULL;
-    nuevo->bloqueados = queue_create();
+    nuevo->bloqueados = list_create();
 
     pthread_mutex_init(&nuevo->mutex_interno, NULL);
 
@@ -84,7 +84,7 @@ bool mutex_lock(char* nombre, t_pcb* proceso) {
     }
 
     //Mutex ocupado
-    queue_push(mutex->bloqueados, proceso);
+    list_add(mutex->bloqueados, proceso);
 
     // Si el proceso bloqueado tiene mayor prioridad que el dueño (número menor = mayor prioridad)
     if (proceso->prioridad < mutex->duenio->prioridad) {
@@ -113,6 +113,45 @@ bool mutex_lock(char* nombre, t_pcb* proceso) {
     return false;
 }
 
+// Recorre TODOS los mutexes del sistema y, de los que 'proceso' sigue
+// teniendo tomados, calcula cuál es la prioridad más alta (número más bajo)
+// entre los procesos que están esperando alguno de ellos. Si no hay ningún
+// mutex propio con gente esperando, devuelve la prioridad_original: recién
+// ahí corresponde restaurarla.
+//
+// Esto reemplaza la lógica anterior, que sólo miraba si HABÍA gente
+// esperando el mutex puntual que se estaba liberando, ignorando que el
+// proceso podía seguir siendo dueño de otro mutex que sí justificaba
+// mantener la prioridad heredada.
+static uint32_t calcular_prioridad_necesaria(t_pcb* proceso) {
+ 
+    uint32_t prioridad_minima = proceso->prioridad_original;
+ 
+    pthread_mutex_lock(&mutex_lista_mutexes);
+ 
+    int cantidad_mutexes = list_size(lista_mutexes);
+    for (int i = 0; i < cantidad_mutexes; i++) {
+        t_mutex_kernel* mutex = list_get(lista_mutexes, i);
+ 
+        pthread_mutex_lock(&mutex->mutex_interno);
+ 
+        if (mutex->duenio == proceso) {
+            int cantidad_bloqueados = list_size(mutex->bloqueados);
+            for (int j = 0; j < cantidad_bloqueados; j++) {
+                t_pcb* esperando = list_get(mutex->bloqueados, j);
+                if (esperando->prioridad < prioridad_minima)
+                    prioridad_minima = esperando->prioridad;
+            }
+        }
+ 
+        pthread_mutex_unlock(&mutex->mutex_interno);
+    }
+ 
+    pthread_mutex_unlock(&mutex_lista_mutexes);
+ 
+    return prioridad_minima;
+}
+
 //Unlock
 
 void mutex_unlock(char* nombre) {
@@ -134,31 +173,56 @@ void mutex_unlock(char* nombre) {
     }
 
     //No hay bloqueados
-    if(queue_is_empty(mutex->bloqueados)) {
+    if(list_is_empty(mutex->bloqueados)) {
 
         mutex->duenio = NULL;
 
         pthread_mutex_unlock(&mutex->mutex_interno);
 
-        if (duenio_anterior->prioridad != duenio_anterior->prioridad_original) {
+        /*if (duenio_anterior->prioridad != duenio_anterior->prioridad_original) {
             log_info(logger, "## %d Cambio de prioridad: %d - %d", duenio_anterior->pid, duenio_anterior->prioridad, duenio_anterior->prioridad_original);
             duenio_anterior->prioridad = duenio_anterior->prioridad_original;
-        }
+        }*/
         return;
+    } else {
+
+        //Hay bloqueados: se lo doy al primero que llegó (FIFO), según lo pedido por la consigna.
+        t_pcb* siguiente = list_remove(mutex->bloqueados, 0);
+        mutex->duenio = siguiente;
+
+        // Entre los que quedan esperando este mismo mutex puede haber alguno
+        // de mayor prioridad que 'siguiente' (el FIFO no garantiza que el
+        // primero en pedirlo sea el más prioritario). Si no chequeamos esto
+        // acá, 'siguiente' se queda con su prioridad original hasta que
+        // llegue algún MUTEX_LOCK nuevo que dispare el chequeo — dejando una
+        // ventana de inversión de prioridades con quien ya estaba esperando
+        // desde antes.
+        int cantidad_restantes = list_size(mutex->bloqueados);
+            for (int i = 0; i < cantidad_restantes; i++) {
+             t_pcb* esperando = list_get(mutex->bloqueados, i);
+                if (esperando->prioridad < siguiente->prioridad) {
+                    log_info(logger, "## %d Cambio de prioridad: %d - %d", siguiente->pid, siguiente->prioridad, esperando->prioridad);
+                    siguiente->prioridad = esperando->prioridad;
+            }
+        }
+
+        pthread_mutex_unlock(&mutex->mutex_interno);
+
+        cambiar_estado(siguiente, ESTADO_READY, logger);
+        agregar_a_ready(siguiente);
     }
 
-    //Hay bloqueados
-    t_pcb* siguiente = queue_pop(mutex->bloqueados);
-    mutex->duenio = siguiente;
-    pthread_mutex_unlock(&mutex->mutex_interno);
+    // Ya soltamos este mutex (mutex->duenio ya no apunta a duenio_anterior),
+    // así que ahora sí podemos preguntar con seguridad, mirando el resto de
+    // los mutexes del sistema, si el ex-dueño TODAVÍA necesita la prioridad
+    // heredada por seguir siendo dueño de algún otro mutex con gente esperando.
+    uint32_t prioridad_correcta = calcular_prioridad_necesaria(duenio_anterior);
 
     if (duenio_anterior->prioridad != duenio_anterior->prioridad_original) {
         log_info(logger, "## %d Cambio de prioridad: %d - %d", duenio_anterior->pid, duenio_anterior->prioridad, duenio_anterior->prioridad_original);
         duenio_anterior->prioridad = duenio_anterior->prioridad_original;
     }
 
-    cambiar_estado(siguiente, ESTADO_READY, logger);
-    agregar_a_ready(siguiente);
 }
 
 //Handler Lock

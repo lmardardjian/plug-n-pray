@@ -10,7 +10,7 @@ extern t_list* lista_mutexes;
 typedef struct {
     char* nombre;
     t_pcb* duenio;
-    t_queue* bloqueados;
+    t_list* bloqueados;
     pthread_mutex_t mutex_interno;
 } t_mutex_kernel;
 
