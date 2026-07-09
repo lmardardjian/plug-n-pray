@@ -8,8 +8,11 @@
 // Buffer para nombres de mutex
 #define MAX_NOMBRE_MUTEX      64
 
-// Buffer para el nombre del archivo de log (ej: "cpu_1.log")
+// Buffer para el nombre del archivo de log
 #define MAX_NOMBRE_LOG        64
+
+// Buffer para el identificador de CPU que viaja por red
+#define MAX_ID_CPU            32
 
 // Tamaño máximo del string de un parámetro numérico de IO
 #define MAX_PARAM_IO_LEN      20

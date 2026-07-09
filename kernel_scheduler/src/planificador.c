@@ -197,6 +197,7 @@ void* hilo_dispatcher(void* arg) {
             }
         }
     }
+    //por si sale del while.
     free(quantum);
     
     return NULL;
