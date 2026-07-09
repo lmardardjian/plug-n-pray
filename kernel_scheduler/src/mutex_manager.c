@@ -219,7 +219,7 @@ void mutex_unlock(char* nombre) {
     uint32_t prioridad_correcta = calcular_prioridad_necesaria(duenio_anterior);
 
     if (duenio_anterior->prioridad != prioridad_correcta) {
-        log_info(logger, "## %d Cambio de prioridad: %d - %d", duenio_anterior->pid, duenio_anterior->prioridad, duenio_anterior->prioridad_correcta);
+        log_info(logger, "## %d Cambio de prioridad: %d - %d", duenio_anterior->pid, duenio_anterior->prioridad, prioridad_correcta);
         duenio_anterior->prioridad = prioridad_correcta;
     }
 
