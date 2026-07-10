@@ -16,7 +16,7 @@
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
-        printf("Uso: ./cpu [config] [identificador]\n"); //raro este string
+        printf("Uso: ./cpu [config] [identificador]\n");
         return EXIT_FAILURE;
     }
     t_config* config = config_create(argv[1]);
@@ -33,8 +33,7 @@ int main(int argc, char* argv[]) {
     char* log_level_str = config_get_string_value(config, "LOG_LEVEL");
     t_log* logger = log_create(nombre_log, "CPU", true, log_level_from_string(log_level_str));
 
-    // SEGMENT_MAX_SIZE: necesario para la MMU (debe coincidir con el
-    // configurado en el Kernel Memory)
+    // SEGMENT_MAX_SIZE: necesario para la MMU (debe coincidir con el configurado en el Kernel Memory)
     tam_max_segmento = (uint32_t)config_get_int_value(config, "SEGMENT_MAX_SIZE");
 
     // KERNEL SCHEDULER

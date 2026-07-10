@@ -376,7 +376,7 @@ void compactar_memoria(void)
 {
 
     int delay_ms = config_get_int_value(config, "COMPACTION_DELAY");
-    usleep((useconds_t)delay_ms * 1000);
+    usleep((useconds_t)delay_ms * MS_A_US);
 
     pthread_mutex_lock(&g_mutex_procesos);
     pthread_mutex_lock(&g_mutex_huecos);
@@ -583,7 +583,7 @@ void op_crear_proceso(int cliente)
         return;
     }
 
-    char key[20];
+    char key[MAX_PID_KEY_LEN];
     snprintf(key, sizeof(key), "%u", pid);
 
     pthread_mutex_lock(&g_mutex_procesos);
@@ -601,9 +601,9 @@ void op_enviar_instruccion(int cliente)
     recibir_uint32(cliente, &pc);
 
     int delay_ms = config_get_int_value(config, "INSTRUCTION_DELAY");
-    usleep((useconds_t)delay_ms * 1000);
+    usleep((useconds_t)delay_ms * MS_A_US);
 
-    char key[20];
+    char key[MAX_PID_KEY_LEN];
     snprintf(key, sizeof(key), "%u", pid);
 
     pthread_mutex_lock(&g_mutex_procesos);
@@ -628,7 +628,7 @@ void op_enviar_contexto(int cliente)
     uint32_t pid;
     recibir_uint32(cliente, &pid);
 
-    char key[20];
+    char key[MAX_PID_KEY_LEN];
     snprintf(key, sizeof(key), "%u", pid);
 
     pthread_mutex_lock(&g_mutex_procesos);
@@ -650,7 +650,7 @@ void op_actualizar_contexto(int cliente)
     uint32_t pid;
     recibir_uint32(cliente, &pid);
 
-    char key[20];
+    char key[MAX_PID_KEY_LEN];
     snprintf(key, sizeof(key), "%u", pid);
 
     pthread_mutex_lock(&g_mutex_procesos);
@@ -702,7 +702,7 @@ void op_mem_alloc(int cliente)
 
         pthread_mutex_lock(&g_mutex_ks_notif);
         enviar_opcode(g_socket_ks_notificaciones, KM_NOTIF_COMPACTAR);
-        pthread_mutex_unlock(&g_mutex_ks_notif);  // fix del autodeadlock
+        pthread_mutex_unlock(&g_mutex_ks_notif);
 
         sem_wait(&sem_compactacion_ok);
         compactar_memoria();
@@ -723,7 +723,7 @@ void op_mem_alloc(int cliente)
     uint32_t base = ocupar_hueco(idx, tamanio);
     pthread_mutex_unlock(&g_mutex_huecos);
 
-    char key[20];
+    char key[MAX_PID_KEY_LEN];
     snprintf(key, sizeof(key), "%u", pid);
 
     pthread_mutex_lock(&g_mutex_procesos);
@@ -753,7 +753,7 @@ void op_mem_free(int cliente)
     recibir_uint32(cliente, &pid);
     recibir_uint32(cliente, &id_segmento);
 
-    char key[20];
+    char key[MAX_PID_KEY_LEN];
     snprintf(key, sizeof(key), "%u", pid);
 
     pthread_mutex_lock(&g_mutex_procesos);
@@ -825,7 +825,7 @@ void op_finalizar_proceso(int cliente)
     uint32_t pid;
     recibir_uint32(cliente, &pid);
 
-    char key[20];
+    char key[MAX_PID_KEY_LEN];
     snprintf(key, sizeof(key), "%u", pid);
 
     pthread_mutex_lock(&g_mutex_procesos);
@@ -858,7 +858,7 @@ void op_suspender_proceso(int cliente)
     uint32_t pid;
     recibir_uint32(cliente, &pid);
 
-    char key[20];
+    char key[MAX_PID_KEY_LEN];
     snprintf(key, sizeof(key), "%u", pid);
 
     pthread_mutex_lock(&g_mutex_procesos);
@@ -952,7 +952,7 @@ void op_reanudar_proceso(int cliente)
     uint32_t pid;
     recibir_uint32(cliente, &pid);
 
-    char key[20];
+    char key[MAX_PID_KEY_LEN];
     snprintf(key, sizeof(key), "%u", pid);
 
     pthread_mutex_lock(&g_mutex_procesos);
@@ -1066,8 +1066,8 @@ void* atender_cliente(void* arg)
         stick->socket  = cliente;
         stick->tamanio = tamanio;
 
-        pthread_mutex_lock(&g_mutex_sticks);
         pthread_mutex_lock(&g_mutex_huecos);
+        pthread_mutex_lock(&g_mutex_sticks);
 
         // la base del nuevo stick es el total de memoria ya existente
         uint32_t base = 0;
@@ -1084,8 +1084,8 @@ void* atender_cliente(void* arg)
 
         list_add(g_memory_sticks, stick);
 
-        pthread_mutex_unlock(&g_mutex_huecos);
         pthread_mutex_unlock(&g_mutex_sticks);
+        pthread_mutex_unlock(&g_mutex_huecos);
 
         log_info(logger, "## Memory Stick de %u bytes Conectada", tamanio);
         notificar_memoria_libre_al_scheduler();

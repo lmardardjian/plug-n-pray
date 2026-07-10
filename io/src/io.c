@@ -27,7 +27,7 @@ void ejecutar_sleep(int pid, char* mensaje, t_log* logger)
     int tiempo = atoi(mensaje);
     //LOG OBLIGATORIO
     log_info(logger, "## PID: %d - Haciendo sleep por %d milisegundos.", pid, tiempo);
-    usleep(tiempo * 1000);
+    usleep(tiempo * MS_A_US);
 }
 
 void ejecutar_stdout(int pid, char* mensaje, t_log* logger)
@@ -45,9 +45,9 @@ void ejecutar_stdin(int pid, int conexion, char* mensaje, t_log* logger)
     memset(input, 0, BUFFER_SIZE);
     log_info(logger, "## PID: %d - Ingrese %d caracteres:", pid, cantidad);
 
-    fgets(input, BUFFER_SIZE, stdin);
     // Si sobrepasa el limite indicado (mensaje), se corta en ese caracter. Si le falta para llegar al limite, se le agregan \0s 
-    // eliminar \n
+    fgets(input, BUFFER_SIZE, stdin);
+    // Eliminar \n
     input[strcspn(input, "\n")] = '\0';
     
     char* resultado = calloc(cantidad + 1, 1);

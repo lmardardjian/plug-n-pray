@@ -2,8 +2,8 @@
 #include "utils/conexion.h"
 #include <commons/config.h>
 #include <commons/log.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 int main(int argc, char* argv[])
 {

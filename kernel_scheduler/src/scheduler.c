@@ -1,6 +1,7 @@
 #include "scheduler.h"
 #include "utils/hilos.h"
 #include "utils/conexion.h"
+#include "utils/constantes.h"
 #include <string.h>
 #include <unistd.h>
 
@@ -122,8 +123,8 @@ void agregar_a_ready(t_pcb* proceso) {
     }
 
     pthread_mutex_unlock(&mutex_ready);
-
-    sem_post(&sem_procesos_en_ready); //avisa que hay un proceso en colas_ready.
+    //avisa que hay un proceso en colas_ready.
+    sem_post(&sem_procesos_en_ready);
 
     if(hay_desalojo_cmn) { //viene del main. Solo es true si el algoritmo de planificación es CMN y si el desalojo entre colas está habilitado.
 
@@ -144,7 +145,7 @@ void agregar_a_ready(t_pcb* proceso) {
     }
 }
 
-void agregar_al_principio_de_ready(t_pcb* proceso){ //cambia con herencia
+void agregar_al_principio_de_ready(t_pcb* proceso){ //DUDA cambia con herencia?
 
     pthread_mutex_lock(&mutex_ready);
 
@@ -159,7 +160,7 @@ void agregar_al_principio_de_ready(t_pcb* proceso){ //cambia con herencia
 
     pthread_mutex_unlock(&mutex_ready);
 
-    sem_post(&sem_procesos_en_ready); //avisa que hay un proceso en colas_ready.
+    sem_post(&sem_procesos_en_ready);
 }
 
 void reinsertar_al_principio_de_ready(t_pcb* proceso) {
@@ -193,8 +194,8 @@ t_pcb* quitar_de_ready_por_pid(uint32_t pid) {
 }
 
 t_pcb* obtener_siguiente_proceso() {
-    
-    sem_wait(&sem_procesos_en_ready); //espera a que haya al menos un proceso.
+    //espera a que haya al menos un proceso.
+    sem_wait(&sem_procesos_en_ready);
 
     pthread_mutex_lock(&mutex_ready);
 
@@ -221,10 +222,10 @@ void agregar_a_block(t_pcb* proceso) {
     list_add(lista_block, proceso);
 
     pthread_mutex_unlock(&mutex_block);
-
-    proceso->tiempo_susp = temporal_create(); //empieza el contador de tiempo en block.
-
-    crear_hilo(hilo_suspension, proceso); //hilo encargado de, si el proceso está más de lo debido bloqueado, pasarlo a susp_block.
+    //empieza el contador de tiempo en block.
+    proceso->tiempo_susp = temporal_create();
+    //hilo encargado de, si el proceso está más de lo debido bloqueado, pasarlo a susp_block.
+    crear_hilo(hilo_suspension, proceso);
 }
 
 t_pcb* quitar_de_block(uint32_t pid) {
@@ -320,8 +321,8 @@ void pausar_en_exec(uint32_t pid) {
 void agregar_a_susp_ready(t_pcb* proceso) {
 
     pthread_mutex_lock(&mutex_susp_ready);
-
-    list_add(listas_susp_ready[proceso->prioridad], proceso); //no chequeo implanificabilidad porque ya se chequeó en agregar_a_ready.
+    //no chequeo implanificabilidad porque ya se chequeó en agregar_a_ready.
+    list_add(listas_susp_ready[proceso->prioridad], proceso);
 
     pthread_mutex_unlock(&mutex_susp_ready);
 }
@@ -351,8 +352,8 @@ t_pcb* quitar_de_susp_ready_por_pid(uint32_t pid) {
 void agregar_a_susp_block(t_pcb* proceso) {
 
     pthread_mutex_lock(&mutex_susp_block);
-
-    list_add(listas_susp_block[proceso->prioridad], proceso); //no chequeo implanificabilidad porque ya se chequeó en agregar_a_ready.
+    //no chequeo implanificabilidad porque ya se chequeó en agregar_a_ready.
+    list_add(listas_susp_block[proceso->prioridad], proceso);
 
     pthread_mutex_unlock(&mutex_susp_block);
 }
@@ -428,7 +429,7 @@ t_pcb* quitar_de_susp_block_por_pid(uint32_t pid) {
 
 // ----------------------------- MISCELÁNEOS -----------------------------
 
-void registrar_cpu_proceso(int socket_cpu_ejecutando, uint32_t pid) { //se usa independientemente del valor de "hay_desalojo_cmn".
+void registrar_cpu_proceso(int socket_cpu_ejecutando, uint32_t pid) {
 
     pthread_mutex_lock(&mutex_cpu_proceso);
 
@@ -443,7 +444,7 @@ void registrar_cpu_proceso(int socket_cpu_ejecutando, uint32_t pid) { //se usa i
 
 void* hilo_suspension(void* arg) {
     t_pcb* proceso = (t_pcb*) arg;
-    usleep(suspension_timeout * 1000);
+    usleep(suspension_timeout * MS_A_US);
 
     //si devuelve NULL, el listener ya sacó al proceso de BLOCK entonces no hay que hacer nada.
     t_pcb* encontrado = quitar_de_block(proceso->pid);
@@ -468,13 +469,14 @@ void* hilo_suspension(void* arg) {
     return NULL;
 }
 
-void intentar_reanudar_proceso() { //recolecta candidatos por nivel de prioridad dentro de cada nivel: primero SUSP_READY, después SUSP_BLOCK. Trata de reanudarlos una sola vez.
+void intentar_reanudar_proceso() {
     t_list* candidatos = list_create();
 
     pthread_mutex_lock(&mutex_susp_ready);
 
     pthread_mutex_lock(&mutex_susp_block);
 
+    //recolecta candidatos por nivel de prioridad dentro de cada nivel.
     for (int nivel = 0; nivel < cant_prioridades; nivel++) {
         t_pcb* p;
         //SUSP_READY de este nivel (ya terminaron IO) (tiempo_susp destuido, por eso no uso sacar_mas_antiguo).

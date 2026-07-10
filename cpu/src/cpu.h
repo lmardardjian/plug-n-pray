@@ -2,7 +2,8 @@
 #define CPU_H
 
 #include <commons/log.h>
-#include <utils/mensajes.h>  // donde está t_contexto y op_code
+#include "utils/mensajes.h"
+#include "utils/constantes.h"
 
 // PID actual que está ejecutando esta CPU
 // (global para poder usarlo en logs desde cualquier lado)
@@ -21,8 +22,8 @@ void     escribir_registro(t_contexto* ctx, char* nombre, uint32_t valor);
 
 typedef struct {
     tipo_instruccion tipo;
-    char param1[32];
-    char param2[32];
+    char param1[MAX_PARAM_INSTRUCCION_LEN];
+    char param2[MAX_PARAM_INSTRUCCION_LEN];
 } t_instruccion;
 
 t_instruccion decode(char* texto);

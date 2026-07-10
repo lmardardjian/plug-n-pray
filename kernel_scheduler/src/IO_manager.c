@@ -51,7 +51,7 @@ static char* armar_parametro_io(t_io_request* req, uint32_t* out_tamanio) {
 
         case TIPO_IO_STDOUT:
             free(param);
-            //libero param porque el límite de 20 caracteres me puede ser insuficiente para lo que necesito en este caso.
+            //libero param porque el límite de MAX_PARAM_IO_LEN caracteres me puede ser insuficiente para lo que necesito en este caso.
             uint32_t tamanio = req->size;
             param = malloc(tamanio > 0 ? tamanio : 1);
 

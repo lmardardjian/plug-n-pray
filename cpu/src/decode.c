@@ -7,8 +7,8 @@ t_instruccion decode(char* texto) {
 
     t_instruccion inst = {0};
 
-    char nombre[32] = {0};
-
+    char nombre[MAX_PARAM_INSTRUCCION_LEN] = {0};
+    // "%31s" debe coincidir con MAX_PARAM_INSTRUCCION_LEN - 1 (deja lugar para el '\0')
     sscanf(texto, "%31s %31s %31s", nombre, inst.param1, inst.param2);
 
     if (strcasecmp(nombre, "NOOP") == 0) inst.tipo = INST_NOOP;

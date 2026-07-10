@@ -78,7 +78,7 @@ static void* hilo_quantum(void* arg) {
     free(args);
 
     //duermo lo especificado por el quantum.
-    usleep(quantum * 1000);
+    usleep(quantum * MS_A_US);
 
     pthread_mutex_lock(&mutex_timers);
 
@@ -265,8 +265,8 @@ void manejar_tick_progress(int socket_cpu, t_pcb* proceso) {
 void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso) {
     //creo y hago uso de las variables necesarias para recibir los parámetros de la syscall.
     uint32_t tipo_inst;
-    char param1[32] = {0};
-    char param2[32] = {0};
+    char param1[MAX_PARAM_INSTRUCCION_LEN] = {0};
+    char param2[MAX_PARAM_INSTRUCCION_LEN] = {0};
     recibir_uint32(socket_cpu, &tipo_inst);
     recibir_string(socket_cpu, param1, sizeof(param1));
     recibir_string(socket_cpu, param2, sizeof(param2));
@@ -305,8 +305,8 @@ void manejar_syscall_io_cpu(int socket_cpu, t_pcb* proceso) {
 void manejar_syscall_mutex_create(int socket_cpu, t_pcb* proceso) {
     //creo y hago uso de las variables necesarias para recibir los parámetros de la syscall.
     uint32_t tipo_inst;
-    char nombre[32] = {0};
-    char param2[32] = {0};
+    char nombre[MAX_NOMBRE_MUTEX] = {0};
+    char param2[MAX_PARAM_INSTRUCCION_LEN] = {0};
     recibir_uint32(socket_cpu, &tipo_inst);
     recibir_string(socket_cpu, nombre, sizeof(nombre));
     //si bien param2 no se usa hay que llevar a cabo la acción de "recibir nada" para no desincronizar.
@@ -326,8 +326,8 @@ void manejar_syscall_mutex_create(int socket_cpu, t_pcb* proceso) {
 void manejar_syscall_mem_alloc(int socket_cpu, t_pcb* proceso) {
     //creo y hago uso de las variables necesarias para recibir los parámetros de la syscall.
     uint32_t tipo_inst;
-    char param1[32] = {0};
-    char param2[32] = {0};
+    char param1[MAX_PARAM_INSTRUCCION_LEN] = {0};
+    char param2[MAX_PARAM_INSTRUCCION_LEN] = {0};
     recibir_uint32(socket_cpu, &tipo_inst);
     recibir_string(socket_cpu, param1, sizeof(param1));
     recibir_string(socket_cpu, param2, sizeof(param2));
@@ -376,8 +376,8 @@ void manejar_syscall_mem_alloc(int socket_cpu, t_pcb* proceso) {
 void manejar_syscall_mem_free(int socket_cpu, t_pcb* proceso) {
     //creo y hago uso de las variables necesarias para recibir los parámetros de la syscall.
     uint32_t tipo_inst;
-    char param1[32] = {0};
-    char param2[32] = {0};
+    char param1[MAX_PARAM_INSTRUCCION_LEN] = {0};
+    char param2[MAX_PARAM_INSTRUCCION_LEN] = {0};
     recibir_uint32(socket_cpu, &tipo_inst);
     recibir_string(socket_cpu, param1, sizeof(param1));
     //si bien param2 no se usa hay que llevar a cabo la acción de "recibir nada" para no desincronizar.
@@ -424,8 +424,8 @@ void manejar_syscall_mem_free(int socket_cpu, t_pcb* proceso) {
 void manejar_syscall_exit(int socket_cpu, t_pcb* proceso) {
     //creo y hago uso de las variables necesarias para recibir los parámetros de la syscall.
     uint32_t tipo_inst;
-    char param1[32] = {0};
-    char param2[32] = {0};
+    char param1[MAX_PARAM_INSTRUCCION_LEN] = {0};
+    char param2[MAX_PARAM_INSTRUCCION_LEN] = {0};
     recibir_uint32(socket_cpu, &tipo_inst);
     recibir_string(socket_cpu, param1, sizeof(param1));
     recibir_string(socket_cpu, param2, sizeof(param2));

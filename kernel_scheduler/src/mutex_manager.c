@@ -68,6 +68,7 @@ bool mutex_lock(char* nombre, t_pcb* proceso) {
     t_mutex_kernel* mutex = buscar_mutex(nombre);
 
     if(mutex == NULL) {
+        log_warning(logger, "MUTEX_LOCK: mutex inexistente ('%s')", nombre);
         return false;
     }
 
@@ -159,7 +160,8 @@ void mutex_unlock(char* nombre) {
     t_mutex_kernel* mutex = buscar_mutex(nombre);
 
     if(mutex == NULL) {
-        return;//falta log error
+        log_warning(logger, "MUTEX_UNLOCK: intento de liberar un mutex inexistente ('%s')", nombre);
+        return;
     }
 
     pthread_mutex_lock(&mutex->mutex_interno);
@@ -198,11 +200,11 @@ void mutex_unlock(char* nombre) {
         // ventana de inversión de prioridades con quien ya estaba esperando
         // desde antes.
         int cantidad_restantes = list_size(mutex->bloqueados);
-            for (int i = 0; i < cantidad_restantes; i++) {
-             t_pcb* esperando = list_get(mutex->bloqueados, i);
-                if (esperando->prioridad < siguiente->prioridad) {
-                    log_info(logger, "## %d Cambio de prioridad: %d - %d", siguiente->pid, siguiente->prioridad, esperando->prioridad);
-                    siguiente->prioridad = esperando->prioridad;
+        for (int i = 0; i < cantidad_restantes; i++) {
+         t_pcb* esperando = list_get(mutex->bloqueados, i);
+            if (esperando->prioridad < siguiente->prioridad) {
+                log_info(logger, "## %d Cambio de prioridad: %d - %d", siguiente->pid, siguiente->prioridad, esperando->prioridad);
+                siguiente->prioridad = esperando->prioridad;
             }
         }
 
@@ -229,10 +231,9 @@ void mutex_unlock(char* nombre) {
 
 void  manejar_syscall_mutex_lock(int socket_cpu, t_pcb* proceso) {
 
-    char nombre_mutex[MAX_NOMBRE_MUTEX];
-
     uint32_t tipo_inst;
-    char param2[32] = {0};
+    char nombre_mutex[MAX_NOMBRE_MUTEX];
+    char param2[MAX_PARAM_INSTRUCCION_LEN] = {0};
     recibir_uint32(socket_cpu, &tipo_inst);
     recibir_string(socket_cpu, nombre_mutex, sizeof(nombre_mutex));
     recibir_string(socket_cpu, param2, sizeof(param2));
@@ -259,10 +260,9 @@ void  manejar_syscall_mutex_lock(int socket_cpu, t_pcb* proceso) {
 
 void manejar_syscall_mutex_unlock (int socket_cpu, t_pcb* proceso) {
 
-    char nombre_mutex[MAX_NOMBRE_MUTEX];
-
     uint32_t tipo_inst;
-    char param2[32] = {0};
+    char nombre_mutex[MAX_NOMBRE_MUTEX];
+    char param2[MAX_PARAM_INSTRUCCION_LEN] = {0};
     recibir_uint32(socket_cpu, &tipo_inst);
     recibir_string(socket_cpu, nombre_mutex, sizeof(nombre_mutex));
     recibir_string(socket_cpu, param2, sizeof(param2));

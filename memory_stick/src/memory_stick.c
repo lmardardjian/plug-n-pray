@@ -1,5 +1,6 @@
 #include "memory_stick.h"
 #include "utils/conexion.h"
+#include "utils/constantes.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -33,7 +34,7 @@ int leer_memoria(t_memory_stick_local* stick, uint32_t direccion, void* destino,
 
 void atender_escritura(int cliente, t_memory_stick_local* stick, t_log* logger, int memory_delay)
 {
-    usleep(memory_delay * 1000); //es correcto que vaya en esta linea?
+    usleep(memory_delay * MS_A_US);
 
     uint32_t direccion;
     uint32_t tamanio;
@@ -58,7 +59,7 @@ void atender_escritura(int cliente, t_memory_stick_local* stick, t_log* logger, 
 
 void atender_lectura(int cliente, t_memory_stick_local* stick, t_log* logger, int memory_delay)
 {
-    usleep(memory_delay * 1000); //es correcto que vaya en esta linea?
+    usleep(memory_delay * MS_A_US);
 
     uint32_t direccion;
     uint32_t tamanio;
@@ -68,7 +69,7 @@ void atender_lectura(int cliente, t_memory_stick_local* stick, t_log* logger, in
     void* buffer = malloc(tamanio);
  
     if (leer_memoria(stick, direccion, buffer, tamanio) == 0) {
-        enviar_opcode(cliente, RESPUESTA_OK);      // ← AGREGAR
+        enviar_opcode(cliente, RESPUESTA_OK);
         enviar_buffer(cliente, buffer, tamanio);
         log_info(logger, "## Lectura de %u bytes", tamanio);
     } else {
@@ -92,7 +93,7 @@ void* atender_cpu(void* arg) //OJO CON EL NOMBRE ya hay una función atender_cpu
     {
         op_code operacion;
 
-        if(recibir_opcode(cliente, &operacion) <= 0) //falta log error
+        if(recibir_opcode(cliente, &operacion) <= 0) //DUDA falta log error
             break;
 
         switch(operacion)

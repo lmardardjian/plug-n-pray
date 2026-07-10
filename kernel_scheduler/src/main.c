@@ -127,7 +127,7 @@ void* atender_cpu(void* arg) {
     // Si había un proceso corriendo en esta CPU, rescatarlo a READY.
     int32_t pid_en_cpu = obtener_pid_de_cpu(socket_cpu);
     if (pid_en_cpu >= 0)
-        rescatar_proceso_de_cpu_desconectada((uint32_t)pid_en_cpu, socket_cpu, logger);
+        rescatar_proceso_de_cpu_desconectada((uint32_t)pid_en_cpu, id_cpu, logger);
 
     close(socket_cpu);
 

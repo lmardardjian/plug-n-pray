@@ -93,7 +93,7 @@ t_pcb* remover_de_activos_global(uint32_t pid) {
     return resultado;
 }
 
-bool rescatar_proceso_de_cpu_desconectada(uint32_t pid, int socket_cpu, t_log* logger) {
+bool rescatar_proceso_de_cpu_desconectada(uint32_t pid, char* id_cpu, t_log* logger) {
 
     pthread_mutex_lock(&mutex_p_activos);
 
@@ -121,7 +121,7 @@ bool rescatar_proceso_de_cpu_desconectada(uint32_t pid, int socket_cpu, t_log* l
         return false;
     }
 
-    log_warning(logger, "## CPU %d desconectada con PID %d en ejecución. Proceso rescatado a READY.", socket_cpu, pid);
+    log_warning(logger, "## CPU %s desconectada con PID %d en ejecución. Proceso rescatado a READY.", id_cpu, pid);
     
     quitar_de_exec(pid);
     cambiar_estado(rescatado, ESTADO_READY, logger);
