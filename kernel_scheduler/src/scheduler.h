@@ -21,6 +21,7 @@ extern pthread_mutex_t mutex_block;
 extern pthread_mutex_t mutex_exec;
 extern pthread_mutex_t mutex_susp_ready;
 extern pthread_mutex_t mutex_susp_block;
+extern pthread_mutex_t mutex_transicion_block;
 
 extern sem_t sem_procesos_en_ready;
 

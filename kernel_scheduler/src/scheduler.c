@@ -17,6 +17,7 @@ pthread_mutex_t mutex_block;
 pthread_mutex_t mutex_exec;
 pthread_mutex_t mutex_susp_ready;
 pthread_mutex_t mutex_susp_block;
+pthread_mutex_t mutex_transicion_block;
 
 //semáforo productor-consumidor de colas_ready.
 sem_t sem_procesos_en_ready;
@@ -71,6 +72,7 @@ void inicializar_ks_planificador() {
     pthread_mutex_init(&mutex_susp_ready, NULL);
     pthread_mutex_init(&mutex_susp_block, NULL);
     pthread_mutex_init(&mutex_cpu_proceso, NULL);
+    pthread_mutex_init(&mutex_transicion_block, NULL);
 
     //inicializo semáforo productor-consumidor.
     sem_init(&sem_procesos_en_ready, 0, 0);
@@ -445,14 +447,20 @@ void* hilo_suspension(void* arg) {
     t_pcb* proceso = (t_pcb*) arg;
     usleep(suspension_timeout * 1000);
 
+    pthread_mutex_lock(&mutex_transicion_block);
+
     //si devuelve NULL, el listener ya sacó al proceso de BLOCK entonces no hay que hacer nada.
     t_pcb* encontrado = quitar_de_block(proceso->pid);
-    if (encontrado == NULL)
+    if (encontrado == NULL) {
+        pthread_mutex_unlock(&mutex_transicion_block);
         return NULL;
+    }
 
     //todavía en BLOCK. Suspender.
     cambiar_estado(proceso, ESTADO_SUSP_BLOCK, logger);
     agregar_a_susp_block(proceso);
+
+    pthread_mutex_unlock(&mutex_transicion_block);
 
     pthread_mutex_lock(&mutex_socket_km_operaciones);
     //notifica al KM.
