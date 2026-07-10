@@ -512,7 +512,7 @@ void intentar_reanudar_proceso() {
         enviar_uint32(socket_kernel_memory_operaciones, proceso->pid);
 
         op_code ack;
-        bool km_confirmo = recibir_opcode(socket_kernel_memory_operaciones, &ack);
+        bool km_confirmo = recibir_opcode(socket_kernel_memory_operaciones, &ack) > 0;
 
         pthread_mutex_unlock(&mutex_socket_km_operaciones);
 
