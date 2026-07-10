@@ -200,6 +200,8 @@ static void* hilo_io_listener(void* arg) {
         free(req);
 
         //trato de quitar el proceso de la lista de bloqueados.
+        pthread_mutex_lock(&mutex_transicion_block);
+
         t_pcb* proceso = quitar_de_block(pid_finalizado);
 
         //si estaba ahí, lo muevo a la lista READY.
@@ -221,6 +223,8 @@ static void* hilo_io_listener(void* arg) {
                 log_error(io->logger, "PID %d no estaba en BLOCK ni SUSP_BLOCK", pid_finalizado);
             }
         }
+
+        pthread_mutex_unlock(&mutex_transicion_block);
     }
 
     //raro sería pero por las dudas si se desconecta la interfaz:

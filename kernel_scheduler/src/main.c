@@ -285,14 +285,7 @@ int main(int argc, char* argv[]) {
     t_log_level log_level = log_level_from_string(log_level_str);
     logger = log_create("kernel_scheduler.log", "KERNEL", 1, log_level);
 
-    //inicializar lo pertinente al Kernel Scheduler.
-    inicializar_ks_estructuras();
-    inicializar_ks_planificador();
-    inicializar_ks_mutex_manager();
-    inicializar_ks_cpu_manager();
-    inicializar_io_manager();
-
-    //obtener el algoritmo de planificación.
+    ///obtener el algoritmo de planificación (ANTES de inicializar estructuras que dependen de cant_prioridades).
     algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
     if(strcmp(algoritmo, "CMN") == 0) {
         cant_prioridades = 0;
@@ -304,6 +297,13 @@ int main(int argc, char* argv[]) {
         if(strcmp(preemtion, "TRUE")== 0)
             hay_desalojo_cmn = true;
     }
+
+    //inicializar lo pertinente al Kernel Scheduler.
+    inicializar_ks_estructuras();
+    inicializar_ks_planificador();
+    inicializar_ks_mutex_manager();
+    inicializar_ks_cpu_manager();
+    inicializar_io_manager();
 
     //obtener tiempo máximo que puede un proceso estar bloqueado.
     suspension_timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
