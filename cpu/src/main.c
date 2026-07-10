@@ -43,6 +43,7 @@ int main(int argc, char* argv[]) {
 
     int fd_scheduler = conectar_a_modulo(logger, ip_scheduler, puerto_scheduler, "Kernel Scheduler");
     handshake_cliente(fd_scheduler, logger, MODULO_CPU);
+    enviar_string(fd_scheduler, argv[2]);
 
     // KERNEL MEMORY
     char* ip_memory = config_get_string_value(config, "IP_KERNEL_MEMORY");
@@ -50,6 +51,7 @@ int main(int argc, char* argv[]) {
 
     int fd_memory = conectar_a_modulo(logger, ip_memory, puerto_memory, "Kernel Memory");
     handshake_cliente(fd_memory, logger, MODULO_CPU);
+    enviar_string(fd_memory, argv[2]);
 
     // LOOP PRINCIPAL
     while (1) {

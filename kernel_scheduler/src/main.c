@@ -50,7 +50,10 @@ void* atender_cpu(void* arg) {
     int socket_cpu = *(int*)arg; //bellissimo.
     free(arg);
 
-    log_info(logger, "## CPU %d Conectada", socket_cpu);
+    char id_cpu[MAX_ID_CPU] = {0};
+    recibir_string(socket_cpu, id_cpu, sizeof(id_cpu));
+
+    log_info(logger, "## CPU %s Conectada", id_cpu);
 
     agregar_cpu_libre(socket_cpu);
 
@@ -58,7 +61,7 @@ void* atender_cpu(void* arg) {
         //recibo la operación.
         op_code opcode;
         if (recibir_opcode(socket_cpu, &opcode) <= 0) {
-            log_warning(logger, "CPU %d desconectada", socket_cpu);
+            log_warning(logger, "CPU %s desconectada", id_cpu);
             break;
         }
 
@@ -70,7 +73,7 @@ void* atender_cpu(void* arg) {
         t_pcb* proceso = encontrar_proceso_global(pid);
 
         if (proceso == NULL) {
-            log_error(logger, "## CPU %d: PID %u no encontrado (opcode %d recibido) — cerrando conexión", socket_cpu, pid, opcode);
+            log_error(logger, "## CPU %s: PID %u no encontrado (opcode %d recibido) — cerrando conexión", id_cpu, pid, opcode);
             break;
         }
         //llamo a la función de manejo propia de la operación.
@@ -195,7 +198,9 @@ void* escuchar_kernel_memory(void* arg) {
             
              case KM_NOTIF_COMPACTACION_FIN:
                 log_info(logger, "## Fin de compactación");
+
                 sem_post(&sem_compactacion);
+                
                 intentar_reanudar_proceso();
                 break;
 

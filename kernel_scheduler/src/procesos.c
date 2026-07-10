@@ -56,8 +56,15 @@ void destruir_todos_global() {
         enviar_uint32(socket_kernel_memory_operaciones, proceso->pid);
 
         op_code ack;
-        if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0)
+        if (recibir_opcode(socket_kernel_memory_operaciones, &ack) <= 0) {
             log_error(logger, "## PID %u: no se pudo confirmar liberación de memoria con Kernel Memory (conexión perdida)", proceso->pid);
+            
+            pthread_mutex_unlock(&mutex_socket_km_operaciones);
+
+            break;
+        }
+
+        log_info(logger, "## (%u) finalizó su ejecución con motivo de BSOD", proceso->pid);
 
         pthread_mutex_unlock(&mutex_socket_km_operaciones);
     }

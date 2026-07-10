@@ -1,5 +1,6 @@
 #include "kernelmemory.h"
 #include "utils/conexion.h"
+#include "utils/constantes.h"
 #include <semaphore.h>
 #include <stdbool.h>
 #include <unistd.h>
@@ -373,7 +374,6 @@ static bool cmp_segs_base(void* a, void* b)
 
 void compactar_memoria(void)
 {
-    log_info(logger, "## Inicio de compactación");
 
     int delay_ms = config_get_int_value(config, "COMPACTION_DELAY");
     usleep((useconds_t)delay_ms * 1000);
@@ -420,8 +420,6 @@ void compactar_memoria(void)
     pthread_mutex_unlock(&g_mutex_sticks);
     pthread_mutex_unlock(&g_mutex_huecos);
     pthread_mutex_unlock(&g_mutex_procesos);
-
-    log_info(logger, "## Fin de compactación");
 
     notificar_fin_compactacion_al_scheduler();
 }
@@ -1093,6 +1091,12 @@ void* atender_cliente(void* arg)
         notificar_memoria_libre_al_scheduler();
 
         return NULL;
+    }
+
+    if (modulo == MODULO_CPU) {
+        char id_cpu[MAX_ID_CPU] = {0};
+        recibir_string(cliente, id_cpu, sizeof(id_cpu));
+        log_info(logger, "## CPU %s Conectada", id_cpu);
     }
 
     bool es_notificaciones = false;

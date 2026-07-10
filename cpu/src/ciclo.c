@@ -270,14 +270,14 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
                 enviar_seg_fault(fd_scheduler, fd_memory, ctx, logger);
                 return 1;
             }
-            log_info(logger, "PID: %d - Acción: LEER - Dirección Física: %d - Valor: <%u bytes>", pid_actual, dir_origen, tamanio);
+            log_info(logger, "PID: %d - Acción: LEER - Dirección Física: %d - Valor: %u bytes", pid_actual, dir_origen, tamanio);
 
             if(mem_write(fd_memory, (uint32_t)dir_destino, buffer, tamanio, logger) < 0) {
                 free(buffer);
                 enviar_seg_fault(fd_scheduler, fd_memory, ctx, logger);
                 return 1;
             }
-            log_info(logger, "PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: <%u bytes>", pid_actual, dir_destino, tamanio);
+            log_info(logger, "PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %u bytes", pid_actual, dir_destino, tamanio);
 
             free(buffer);
             break;

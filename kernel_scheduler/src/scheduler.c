@@ -134,7 +134,7 @@ void agregar_a_ready(t_pcb* proceso) {
             if (en_ejecucion->prioridad > proceso->prioridad) { //mayor priordad => menor número.
                 int socket_cpu_ejecutando = obtener_socket_cpu_de(en_ejecucion->pid);
                 if (socket_cpu_ejecutando != -1) {
-                    log_info(logger, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso (%d) con prioridad %d", en_ejecucion->pid, en_ejecucion->prioridad, proceso->pid, proceso->prioridad);
+                    log_info(logger, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso %d con prioridad %d", en_ejecucion->pid, en_ejecucion->prioridad, proceso->pid, proceso->prioridad);
                     marcar_interrupcion(socket_cpu_ejecutando); //usa el mecanismo de tick progress.
                 }
             break;
@@ -291,7 +291,8 @@ void quitar_de_exec(uint32_t pid) {
         for (int i = 0; i < tamanio; i++) {
             t_cpu_proceso* proceso_en_cpu = list_get(lista_cpu_proceso, i);
             if (proceso_en_cpu->pid == encontrado->pid) {
-                list_remove(lista_cpu_proceso, i);
+                t_cpu_proceso* removido = list_remove(lista_cpu_proceso, i);
+                free(removido);
                 break;
             }
         }
