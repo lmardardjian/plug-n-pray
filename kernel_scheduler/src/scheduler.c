@@ -112,42 +112,57 @@ int32_t obtener_pid_de_cpu(int socket_cpu) {
     return resultado;
 }
 
+static int nivel_de(t_pcb* proceso) {
+    return (strcmp(algoritmo, "CMN") == 0) ? (int)proceso->prioridad : 0;
+}
+
 void agregar_a_ready(t_pcb* proceso) {
 
     pthread_mutex_lock(&mutex_ready);
 
-    int nivel = (strcmp(algoritmo, "CMN") == 0) ? (int)proceso->prioridad : 0;
+    int nivel = nivel_de(proceso);
 
     if(nivel < cant_prioridades) {
         queue_push(colas_ready[nivel], proceso);
+
+        pthread_mutex_unlock(&mutex_ready);
+        //avisa que hay un proceso en colas_ready.
+        sem_post(&sem_procesos_en_ready);
     } else {
         log_warning(logger, "El proceso %d tiene una prioridad implanificable", proceso->pid);
-    }
+        
+        pthread_mutex_unlock(&mutex_ready);
 
-    pthread_mutex_unlock(&mutex_ready);
-    //avisa que hay un proceso en colas_ready.
-    sem_post(&sem_procesos_en_ready);
+        return;
+    }
 
     if(hay_desalojo_cmn) { //viene del main. Solo es true si el algoritmo de planificación es CMN y si el desalojo entre colas está habilitado.
 
         pthread_mutex_lock(&mutex_exec);
 
+        t_pcb* peor_candidato = NULL;
         for (int i = 0; i < list_size(lista_exec); i++) {
             t_pcb* en_ejecucion = list_get(lista_exec, i);
-            if (en_ejecucion->prioridad > proceso->prioridad) { //mayor priordad => menor número.
-                int socket_cpu_ejecutando = obtener_socket_cpu_de(en_ejecucion->pid);
-                if (socket_cpu_ejecutando != -1) {
-                    log_info(logger, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso %d con prioridad %d", en_ejecucion->pid, en_ejecucion->prioridad, proceso->pid, proceso->prioridad);
-                    marcar_interrupcion(socket_cpu_ejecutando); //usa el mecanismo de tick progress.
+            if (en_ejecucion->prioridad > proceso->prioridad) { //mayor prioridad => menor número.
+                if (peor_candidato == NULL || en_ejecucion->prioridad > peor_candidato->prioridad) {
+                    peor_candidato = en_ejecucion;
                 }
-            break;
             }
         }
+
+        if (peor_candidato != NULL) {
+            int socket_cpu_ejecutando = obtener_socket_cpu_de(peor_candidato->pid);
+            if (socket_cpu_ejecutando != -1) {
+                log_info(logger, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso %d con prioridad %d", peor_candidato->pid, peor_candidato->prioridad, proceso->pid, proceso->prioridad);
+                marcar_interrupcion(socket_cpu_ejecutando); //usa el mecanismo de tick progress.
+            }
+        }
+
         pthread_mutex_unlock(&mutex_exec);
     }
 }
 
-void agregar_al_principio_de_ready(t_pcb* proceso){ //DUDA cambia con herencia?
+void agregar_al_principio_de_ready(t_pcb* proceso){
 
     pthread_mutex_lock(&mutex_ready);
 
@@ -156,13 +171,15 @@ void agregar_al_principio_de_ready(t_pcb* proceso){ //DUDA cambia con herencia?
     if(nivel < cant_prioridades) {
         t_queue* cola = colas_ready[nivel];
         list_add_in_index(cola->elements, 0, proceso);
+
+        pthread_mutex_unlock(&mutex_ready);
+
+        sem_post(&sem_procesos_en_ready);
     } else {
         log_warning(logger, "El proceso %d tiene una prioridad implanificable", proceso->pid);
+
+        pthread_mutex_unlock(&mutex_ready);
     }
-
-    pthread_mutex_unlock(&mutex_ready);
-
-    sem_post(&sem_procesos_en_ready);
 }
 
 void reinsertar_al_principio_de_ready(t_pcb* proceso) {
@@ -323,8 +340,13 @@ void pausar_en_exec(uint32_t pid) {
 void agregar_a_susp_ready(t_pcb* proceso) {
 
     pthread_mutex_lock(&mutex_susp_ready);
-    //no chequeo implanificabilidad porque ya se chequeó en agregar_a_ready.
-    list_add(listas_susp_ready[proceso->prioridad], proceso);
+
+    int nivel = nivel_de(proceso);
+    if (nivel < cant_prioridades) {
+        list_add(listas_susp_ready[nivel], proceso);
+    } else {
+        log_warning(logger, "El proceso %d tiene una prioridad implanificable (susp_ready)", proceso->pid);
+   }    
 
     pthread_mutex_unlock(&mutex_susp_ready);
 }
@@ -354,8 +376,12 @@ t_pcb* quitar_de_susp_ready_por_pid(uint32_t pid) {
 void agregar_a_susp_block(t_pcb* proceso) {
 
     pthread_mutex_lock(&mutex_susp_block);
-    //no chequeo implanificabilidad porque ya se chequeó en agregar_a_ready.
-    list_add(listas_susp_block[proceso->prioridad], proceso);
+    int nivel = nivel_de(proceso);
+    if (nivel < cant_prioridades) {
+        list_add(listas_susp_block[nivel], proceso);
+    } else {
+        log_warning(logger, "El proceso %d tiene una prioridad implanificable (susp_block)", proceso->pid);
+    }
 
     pthread_mutex_unlock(&mutex_susp_block);
 }
