@@ -457,6 +457,8 @@ void manejar_syscall_exit(int socket_cpu, t_pcb* proceso) {
 
     remover_de_activos_global(proceso->pid);
 
+    liberar_mutexes_de_proceso(proceso);
+
     //destruyo el proceso, libero la cpu que lo manejaba.
     destruir_pcb(proceso);
     agregar_cpu_libre(socket_cpu);

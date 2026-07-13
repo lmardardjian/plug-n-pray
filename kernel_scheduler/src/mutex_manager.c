@@ -210,6 +210,8 @@ void mutex_unlock(char* nombre) {
 
         pthread_mutex_unlock(&mutex->mutex_interno);
 
+        log_info(logger, "## (%d) Toma el Mutex %s", siguiente->pid, nombre);
+
         cambiar_estado(siguiente, ESTADO_READY, logger);
         agregar_a_ready(siguiente);
     }
@@ -280,4 +282,33 @@ void manejar_syscall_mutex_unlock (int socket_cpu, t_pcb* proceso) {
     agregar_a_ready(proceso);
     agregar_cpu_libre(socket_cpu);
 
+}
+
+void liberar_mutexes_de_proceso(t_pcb* proceso) {
+
+    pthread_mutex_lock(&mutex_lista_mutexes);
+
+    int cantidad = list_size(lista_mutexes);
+    char* nombres_a_liberar[cantidad > 0 ? cantidad : 1];
+    int encontrados = 0;
+
+    for (int i = 0; i < cantidad; i++) {
+        t_mutex_kernel* mutex = list_get(lista_mutexes, i);
+
+        pthread_mutex_lock(&mutex->mutex_interno);
+
+        bool es_dueño = (mutex->duenio == proceso);
+        
+        pthread_mutex_unlock(&mutex->mutex_interno);
+
+        if (es_dueño)
+            nombres_a_liberar[encontrados++] = mutex->nombre;
+    }
+
+    pthread_mutex_unlock(&mutex_lista_mutexes);
+
+    for (int i = 0; i < encontrados; i++) {
+        log_warning(logger, "## (%d) finalizó con el Mutex '%s' todavía tomado — liberándolo automáticamente", proceso->pid, nombres_a_liberar[i]);
+        mutex_unlock(nombres_a_liberar[i]);
+    }
 }
