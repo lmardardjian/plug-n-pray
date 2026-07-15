@@ -963,26 +963,21 @@ void op_reanudar_proceso(int cliente)
 
     t_list* pendientes = proc->segmentos_suspendidos;
 
-    // verificar que haya espacio para todos los segmentos antes de mover nada
-    pthread_mutex_lock(&g_mutex_huecos);
-    for (int i = 0; i < (int)list_size(pendientes); i++) {
-        t_segmento_swap* ss = list_get(pendientes, i);
-        if (seleccionar_hueco(ss->tamanio) == -1) {
-            pthread_mutex_unlock(&g_mutex_huecos);
-            enviar_opcode(cliente, RESPUESTA_ERROR);
-            return;
-        }
-    }
-    pthread_mutex_unlock(&g_mutex_huecos);
-
     t_list* nuevos_segmentos = list_create();
     void*   buffer_bloque    = malloc(g_swap_block_size);
+    bool    ok = true;
 
-    for (int i = 0; i < (int)list_size(pendientes); i++) {
+    for (int i = 0; i < (int)list_size(pendientes) && ok; i++) {
         t_segmento_swap* ss = list_get(pendientes, i);
 
         pthread_mutex_lock(&g_mutex_huecos);
-        int      idx       = seleccionar_hueco(ss->tamanio);
+        int idx = seleccionar_hueco(ss->tamanio);
+        if (idx == -1) {
+            pthread_mutex_unlock(&g_mutex_huecos);
+            log_error(logger, "## PID: %u - Sin espacio contiguo suficiente al reanudar (segmento %u de %u bytes)", pid, ss->id_segmento, ss->tamanio);
+            ok = false;
+            break;
+        }
         uint32_t nueva_base = ocupar_hueco(idx, ss->tamanio);
         pthread_mutex_unlock(&g_mutex_huecos);
 
@@ -1010,6 +1005,18 @@ void op_reanudar_proceso(int cliente)
         free(ss);
     }
     free(buffer_bloque);
+
+    if (!ok) {
+        for (int i = 0; i < (int)list_size(nuevos_segmentos); i++) {
+            t_segmento* seg = list_get(nuevos_segmentos, i);
+            liberar_segmento(seg->base, seg->limite);
+            free(seg);
+        }
+        list_destroy(nuevos_segmentos);
+        
+        enviar_opcode(cliente, RESPUESTA_ERROR);
+        return;
+    }
 
     pthread_mutex_lock(&g_mutex_procesos);
     for (int i = 0; i < (int)list_size(nuevos_segmentos); i++)
