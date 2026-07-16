@@ -182,6 +182,7 @@ static int execute(t_instruccion inst, t_contexto* ctx, int fd_scheduler, int fd
         case INST_SET: {
             uint32_t valor = strtoul(inst.param2, NULL, 10);
             escribir_registro(ctx, inst.param1, valor);
+            if (strcmp(inst.param1, "PC") == 0) pc_modificado = 1;
             break;
         }
         case INST_SUM: {
